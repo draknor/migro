@@ -1,0 +1,9 @@
+- if flash.any?
+  .row
+    .small-12.columns
+      - flash.each do |name, msg|
+        - if msg.is_a?(String)
+          div class="alert-box radius #{name}" data-alert=true
+            = msg
+            a.close href="#" &times;
+          - flash[name] = nil  # clear it out after displaying it
