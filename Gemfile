@@ -18,6 +18,9 @@ gem 'coffee-rails', '~> 4.0.0'
 
 gem 'foundation-rails'
 gem 'slim'
+gem 'devise'
+
+gem 'sass', '3.2.19'
 
 # Use jquery as the JavaScript library
 gem 'jquery-rails'
@@ -41,6 +44,8 @@ gem 'rails-html-sanitizer', '~> 1.0'
 # gem 'capistrano-rails', group: :development
 
 group :development, :test do
+  gem 'quiet_assets'
+
   # Call 'debugger' anywhere in the code to stop execution and get a debugger console
   #gem 'byebug'
 
