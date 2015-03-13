@@ -1,4 +1,4 @@
-class BullhornSystem
+class BullhornSystem < BaseSystem
 
   @@client ||= Bullhorn::Rest::Client.new(
       username: Rails.application.secrets[:bullhorn][:username],
@@ -16,8 +16,11 @@ class BullhornSystem
 
   ]
 
-  def initialize
 
+  def self.account_info
+    # Bullhorn::Rest doesn't currently support Settings entity, which has the current user ID
+    # So for now, just get all of them
+    @@client.corporate_users
   end
 
 end

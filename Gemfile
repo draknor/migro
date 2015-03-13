@@ -47,6 +47,7 @@ gem 'rails-html-sanitizer', '~> 1.0'
 gem 'highrise'
 gem 'bullhorn-rest', git: 'https://github.com/getoutreach/bullhorn-rest.git'
 gem 'hashie'
+gem 'awesome_print'
 
 group :development, :test do
   gem 'quiet_assets'

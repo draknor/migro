@@ -1,6 +1,6 @@
 
 .row
-  .large-10.large-centered.columns
+  .medium-12.columns
     h3 System Detail
     table
       thead
@@ -15,5 +15,18 @@
           td = @system.ref_url
           td = @system.integration_type
           td = link_to 'Edit', edit_system_path(@system), class: 'button tiny radius'
-          td = link_to 'Delete', @system, method: :delete, data: { confirm: 'Are you sure?' }, class: 'button tiny radius'
-    = link_to 'Back', systems_path, class: 'button tiny'
+          /td = link_to 'Delete', @system, method: :delete, data: { confirm: 'Are you sure?' }, class: 'button tiny radius'
+          td = link_to 'Test', test_system_path(@system), class: 'button tiny radius'
+  .medium-6.columns
+    h3 Known entities
+    .panel
+      p
+        = @system.entities.join(', ')
+  .medium-6.columns
+    h3 API Account Info
+    .panel
+      = @system.account_info.awesome_inspect
+
+
+.row
+  = link_to 'Back', systems_path, class: 'button tiny'

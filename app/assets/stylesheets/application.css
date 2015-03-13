@@ -34,3 +34,7 @@ html, body {
 .footer, .push {
   height: 50px;
 }
+
+.debug_dump {
+  white-space : pre-wrap;
+}
