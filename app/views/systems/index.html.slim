@@ -1,0 +1,21 @@
+.row
+  .large-10.large-centered.columns
+    h3 Listing Systems
+    table
+      thead
+        tr
+          td Name
+          td Reference URL
+          td Integration Type
+          td[colspan=2] Actions
+      tbody
+        - @systems.each do |system|
+          tr
+            td = link_to system.name, system
+            td = system.ref_url
+            td = system.integration_type
+            td = link_to 'Test', test_system_path(system), class: 'button tiny radius'
+            td = link_to 'Edit', edit_system_path(system), class: 'button tiny radius'
+            td = link_to 'Delete', system, method: :delete, data: { confirm: 'Are you sure?' }, class: 'button tiny radius'
+    br
+    = link_to 'New System', new_system_path, class: 'button tiny'

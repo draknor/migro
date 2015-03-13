@@ -1,0 +1,6 @@
+.row
+  .large-10.large-centered.columns
+    h3 New System
+    .panel.radius
+      = render 'form', button_description: 'Create', form_url: systems_path
+    = link_to 'Back', systems_path, class: 'button tiny'

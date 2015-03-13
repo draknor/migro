@@ -1,0 +1,6 @@
+.row
+  .large-10.large-centered.columns
+    h3 Edit System #{@system.name}
+    .panel.radius
+      = render 'form', button_description: 'Edit', form_url: system_path
+    = link_to 'Back', systems_path, class: 'button tiny'

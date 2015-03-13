@@ -1,0 +1,19 @@
+
+.row
+  .large-10.large-centered.columns
+    h3 System Detail
+    table
+      thead
+        tr
+          td Name
+          td Reference URL
+          td Integration Type
+          td[colspan=2] Actions
+      tbody
+        tr
+          td = link_to @system.name, @system
+          td = @system.ref_url
+          td = @system.integration_type
+          td = link_to 'Edit', edit_system_path(@system), class: 'button tiny radius'
+          td = link_to 'Delete', @system, method: :delete, data: { confirm: 'Are you sure?' }, class: 'button tiny radius'
+    = link_to 'Back', systems_path, class: 'button tiny'

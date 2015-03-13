@@ -19,6 +19,7 @@ gem 'coffee-rails', '>= 4.0.0'
 gem 'foundation-rails'
 gem 'slim'
 gem 'devise'
+gem 'simple_form'
 
 # gem 'sass', '3.2.19'
 
@@ -43,6 +44,10 @@ gem 'rails-html-sanitizer', '~> 1.0'
 # Use Capistrano for deployment
 # gem 'capistrano-rails', group: :development
 
+gem 'highrise'
+gem 'bullhorn-rest', git: 'https://github.com/getoutreach/bullhorn-rest.git'
+gem 'hashie'
+
 group :development, :test do
   gem 'quiet_assets'
 
@@ -54,5 +59,9 @@ group :development, :test do
 
   # Spring speeds up development by keeping your application running in the background. Read more: https://github.com/rails/spring
   #gem 'spring'
+
+  # Convert erb to slim - use CLI erb2slim
+  #gem 'html2slim'
+
 end
 
