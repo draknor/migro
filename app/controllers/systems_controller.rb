@@ -19,6 +19,12 @@ class SystemsController < ApplicationController
   def edit
   end
 
+  # GET /systems/1/test
+  def test
+    @params = params
+    @results = @system.search(@params[:entity],@params[:query])
+  end
+
   # POST /systems
   def create
     @system = System.new(system_params)

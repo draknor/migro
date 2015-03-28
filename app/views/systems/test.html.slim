@@ -1,8 +1,19 @@
 
 .row
-  .large-10.large-centered.columns
-    h3 Test System: #{@system.name}
+  .medium-12.columns
+    h3 Testing System: #{@system.name}
     .panel
-      p blah blah blah
+      h5 Search for Entities
+      = render 'test_query', params: @params
+    br
+    - unless @results.nil?
+      .panel
+        h5 Search Results for "[#{@params[:entity]}] #{@params[:query]}"
+        = render 'test_results', results: @results
 
+
+
+
+.row
+  .medium-12.text-center.columns
     = link_to 'Back', systems_path, class: 'button tiny'

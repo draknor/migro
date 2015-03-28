@@ -1,0 +1,13 @@
+= form_tag test_system_path, method: :get
+  .field.row
+    .medium-4.columns
+      - param_entity = @params.nil? ? nil : @params[:entity]
+      = select_tag :entity, options_for_select(@system.entities, param_entity), include_blank: false
+      p.hint Entity Type
+    .medium-8.columns
+      - param_query  = @params.nil? ? nil : @params[:query]
+      = text_field_tag :query, param_query
+  .field.row
+    .small-12.small-centered.columns.text-center
+      input.button.small type="submit" value="Search"
+

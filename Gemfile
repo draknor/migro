@@ -45,7 +45,7 @@ gem 'rails-html-sanitizer', '~> 1.0'
 # gem 'capistrano-rails', group: :development
 
 gem 'highrise'
-gem 'bullhorn-rest', git: 'https://github.com/getoutreach/bullhorn-rest.git'
+gem 'bullhorn-rest', git: 'https://github.com/draknor/bullhorn-rest.git', :branch => 'add_setting_entity'
 gem 'hashie'
 gem 'awesome_print'
 

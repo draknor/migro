@@ -2,29 +2,45 @@ class System < ActiveRecord::Base
   TYPES = [:highrise, :bullhorn]
   enum integration_type: TYPES
 
+
+
+  after_initialize :after_system_init
+
   def entities
-    case self.integration_type
-    when :highrise.to_s
-      HighriseSystem.entities
-    when :bullhorn.to_s
-      BullhornSystem.entities
-    else
-      nil
+    begin
+      @system_type.entities
+    rescue
+      ServiceError.new('API failed to retrieve entity list')
     end
   end
 
   def account_info
     begin
-      case self.integration_type
-        when :highrise.to_s
-          HighriseSystem.account_info
-        when :bullhorn.to_s
-          BullhornSystem.account_info
-        else
-          nil
-      end
+      @system_type.account_info
     rescue
       ServiceError.new('API failed to retrieve account info')
+    end
+  end
+
+  def search(entity,query)
+    begin
+      @system_type.search
+    rescue
+      ServiceError.new('API search failed')
+    end
+
+  end
+
+  # Private methods #########################
+  private
+  def after_system_init
+    case self.integration_type
+      when :highrise.to_s
+        @system_type = HighriseSystem
+      when :bullhorn.to_s
+        @system_type = BullhornSystem
+      else
+        @system_type = BaseSystem
     end
   end
 

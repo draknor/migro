@@ -1,0 +1,15 @@
+table
+  thead
+    tr
+      th ID
+      th Name
+      th Details
+  tbody
+    - @results.each do |result|
+      tr
+        td = result.id
+        td = result.name
+        td
+          .result-details
+            / TODO - hide this by default and show via JS link
+            = result.details
