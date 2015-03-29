@@ -25,7 +25,9 @@
   .medium-6.columns
     h3 API Account Info
     .panel
-      = @system.account_info.awesome_inspect
+      pre
+        = JSON.pretty_generate(@system.account_info)
+        /= @system.account_info
 
 
 .row

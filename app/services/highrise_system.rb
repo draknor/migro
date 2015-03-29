@@ -7,7 +7,8 @@ class HighriseSystem < BaseSystem
 
 
   def self.account_info
-    Highrise::Account.me
+    # Hashie::Mash.new JSON.parse Highrise::Account.me.to_json
+    JSON.parse Highrise::Account.me.to_json
   end
 
 

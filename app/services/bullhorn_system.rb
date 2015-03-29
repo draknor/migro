@@ -24,9 +24,8 @@ class BullhornSystem < BaseSystem
 
 
   def self.account_info
-    # Bullhorn::Rest doesn't currently support Settings entity, which has the current user ID
-    # So for now, just get all of them
-    @@client.settings
+    # @@client.settings
+    JSON.parse @@client.settings.data.to_json
   end
 
 end

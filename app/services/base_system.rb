@@ -10,7 +10,7 @@ class BaseSystem
   end
 
   def self.account_info
-
+    # Should return JSON object
   end
 
   def self.search(entity, query)
