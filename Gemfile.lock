@@ -1,12 +1,20 @@
 GIT
   remote: https://github.com/draknor/bullhorn-rest.git
-  revision: 314798d5ce34b17dc6b5fac2899971be023f6455
-  branch: add_setting_entity
+  revision: 6fd9f605eace593658228ec415755ca90f9b969d
+  branch: add_find_api
   specs:
-    bullhorn-rest (0.0.1.6)
+    bullhorn-rest (0.0.1.7)
       activesupport
       faraday
       i18n
+
+GIT
+  remote: https://github.com/draknor/highrise.git
+  revision: 48c6e1ef890e6da73a52edcca8c455b3f991f440
+  branch: add_search_term
+  specs:
+    highrise (3.2.1)
+      activeresource (>= 3.2.13)
 
 GEM
   remote: https://rubygems.org/
@@ -57,7 +65,7 @@ GEM
     coffee-rails (4.1.0)
       coffee-script (>= 2.2.0)
       railties (>= 4.0.0, < 5.0)
-    coffee-script (2.3.0)
+    coffee-script (2.4.1)
       coffee-script-source
       execjs
     coffee-script-source (1.9.1)
@@ -69,17 +77,15 @@ GEM
       thread_safe (~> 0.1)
       warden (~> 1.2.3)
     erubis (2.7.0)
-    execjs (2.4.0)
+    execjs (2.5.2)
     faraday (0.9.1)
       multipart-post (>= 1.2, < 3)
-    foundation-rails (5.5.1.1)
+    foundation-rails (5.5.1.0)
       railties (>= 3.1.0)
       sass (>= 3.3.0, < 3.5)
-    globalid (0.3.3)
+    globalid (0.3.5)
       activesupport (>= 4.1.0)
-    hashie (3.4.0)
-    highrise (3.2.1)
-      activeresource (>= 3.2.13)
+    hashie (3.4.1)
     hike (1.2.3)
     i18n (0.7.0)
     jquery-rails (4.0.3)
@@ -135,7 +141,7 @@ GEM
     responders (2.1.0)
       railties (>= 4.2.0, < 5)
     sass (3.4.13)
-    sass-rails (5.0.1)
+    sass-rails (5.0.3)
       railties (>= 4.0.0, < 5.0)
       sass (~> 3.1)
       sprockets (>= 2.8, < 4.0)
@@ -178,9 +184,9 @@ DEPENDENCIES
   bullhorn-rest!
   coffee-rails (>= 4.0.0)
   devise
-  foundation-rails
+  foundation-rails (= 5.5.1.0)
   hashie
-  highrise
+  highrise!
   jquery-rails
   mysql2
   quiet_assets

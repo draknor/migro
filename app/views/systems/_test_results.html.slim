@@ -10,6 +10,7 @@ table
         td = result.id
         td = result.name
         td
-          .result-details
-            / TODO - hide this by default and show via JS link
-            = result.details
+          a data-dropdown="result#{result.id}" aria-controls="result#{result.id}" aria-expanded="false" Details
+          div id="result#{result.id}" data-dropdown-content="" class="large f-dropdown content" aria-hidden="true" tabindex="-1"
+            pre
+              = JSON.pretty_generate(JSON.parse result.to_json)

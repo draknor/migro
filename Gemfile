@@ -16,7 +16,8 @@ gem 'coffee-rails', '>= 4.0.0'
 # See https://github.com/sstephenson/execjs#readme for more supported runtimes
 # gem 'therubyracer', platforms: :ruby
 
-gem 'foundation-rails'
+# js bug in 5.5.1.1, wait for 5.5.1.2
+gem 'foundation-rails', '= 5.5.1.0'
 gem 'slim'
 gem 'devise'
 gem 'simple_form'
@@ -44,8 +45,8 @@ gem 'rails-html-sanitizer', '~> 1.0'
 # Use Capistrano for deployment
 # gem 'capistrano-rails', group: :development
 
-gem 'highrise'
-gem 'bullhorn-rest', git: 'https://github.com/draknor/bullhorn-rest.git', :branch => 'add_setting_entity'
+gem 'highrise', git: 'https://github.com/draknor/highrise.git', :branch => 'add_search_term'
+gem 'bullhorn-rest', git: 'https://github.com/draknor/bullhorn-rest.git', :branch => 'add_find_api'
 gem 'hashie'
 gem 'awesome_print'
 

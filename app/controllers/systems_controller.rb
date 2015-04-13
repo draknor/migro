@@ -22,7 +22,7 @@ class SystemsController < ApplicationController
   # GET /systems/1/test
   def test
     @params = params
-    @results = @system.search(@params[:entity],@params[:query])
+    @results = @params[:query].blank? ? nil : @system.search(@params[:entity],@params[:query])
   end
 
   # POST /systems
@@ -51,9 +51,6 @@ class SystemsController < ApplicationController
     redirect_to systems_url, notice: 'System was successfully destroyed.'
   end
 
-  def test
-
-  end
 
   private
     # Use callbacks to share common setup or constraints between actions.

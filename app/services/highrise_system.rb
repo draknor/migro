@@ -11,5 +11,11 @@ class HighriseSystem < BaseSystem
     JSON.parse Highrise::Account.me.to_json
   end
 
+  def self.search(entity, query)
+    mod = entity.to_s.camelize
+    Highrise.const_get(mod).search(term: query)
+  end
+
+
 
 end

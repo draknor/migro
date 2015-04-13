@@ -22,10 +22,20 @@ class BullhornSystem < BaseSystem
 
   ]
 
+  # really just for debugging purposes
+  def self.client_obj
+    @@client
+  end
 
   def self.account_info
     # @@client.settings
     JSON.parse @@client.settings.data.to_json
   end
+
+  def self.search(entity, query)
+    resp = @@client.send "search_#{entity.to_s.pluralize}", query: query
+    resp.data
+  end
+
 
 end

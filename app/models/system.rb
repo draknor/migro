@@ -24,9 +24,9 @@ class System < ActiveRecord::Base
 
   def search(entity,query)
     begin
-      @system_type.search
+      @system_type.search(entity,query)
     rescue
-      ServiceError.new('API search failed')
+      [ServiceError.new('API search failed')]
     end
 
   end
