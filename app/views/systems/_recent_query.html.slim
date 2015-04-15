@@ -1,0 +1,21 @@
+= form_tag test_system_path, method: :get
+  .field.row
+    .medium-1.columns
+      | Find
+    .medium-3.columns
+      - param_entity = @params.nil? ? nil : @params[:entity]
+      = select_tag :entity, options_for_select(@system.entities, param_entity), include_blank: false
+    .medium-3.columns
+      | records updated since
+    .medium-3.columns
+      - param_query  = @params.nil? ? nil : @params[:recent]
+      = text_field_tag :recent, param_query, class: 'datetime'
+    .medium-1.columns
+      | page
+    .medium-1.columns
+      - param_query = @params.nil? ? 1 : @params[:page]
+      = text_field_tag :page, param_query
+  .field.row
+    .small-12.small-centered.columns.text-center
+      input.button.small type="submit" value="Retrieve"
+

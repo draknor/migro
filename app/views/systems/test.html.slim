@@ -6,9 +6,17 @@
       h5 Search for Entities
       = render 'test_query', params: @params
     br
+    .panel
+      h5 Get Recent Updates
+      = render 'recent_query', params: @params
+    br
+    .panel
+      h5 Get All Records
+      = render 'all_query', params: @params
+    br
     - unless @results.nil?
       .panel
-        h5 Search Results for "[#{@params[:entity]}] #{@params[:query]}"
+        h5 = @results_header
         = render 'test_results', results: @results
 
 

@@ -5,6 +5,10 @@ class HighriseSystem < BaseSystem
       :note, :party, :person, :recording, :subject, :tag, :task, :task_category, :user
   ]
 
+  def self.max_per_page
+    500  # HR returns this many results per page
+  end
+
 
   def self.account_info
     # Hashie::Mash.new JSON.parse Highrise::Account.me.to_json
@@ -13,9 +17,23 @@ class HighriseSystem < BaseSystem
 
   def self.search(entity, query)
     mod = entity.to_s.camelize
-    Highrise.const_get(mod).search(term: query)
+    results = Highrise.const_get(mod).search(term: query)
+    return [] if results.nil?
+    results
   end
 
+  def self.retrieve(entity,timestamp, page)
+    puts "[debug] HighriseSystem#retrieve: #{entity}, #{timestamp}, #{page}"
+    mod = entity.to_s.camelize
+    offset = page > 1 ? (page - 1) * self.max_per_page : 0
+    params = {}
+    params[:since] = timestamp.utc.strftime('%Y%m%d%H%M%S') unless timestamp.nil?
+    params[:n] = offset if offset>0
+
+    results = Highrise.const_get(mod).find(:all, params: params )
+    return [] if results.nil?
+    results
+  end
 
 
 end

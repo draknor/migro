@@ -16,4 +16,13 @@ class BaseSystem
   def self.search(entity, query)
 
   end
-end
+
+  def self.retrieve(entity, timestamp, page)
+
+  end
+
+  def self.max_per_page
+
+  end
+
+  end

@@ -2,15 +2,15 @@ class System < ActiveRecord::Base
   TYPES = [:highrise, :bullhorn]
   enum integration_type: TYPES
 
-
-
   after_initialize :after_system_init
+
+  attr_reader :system_type
 
   def entities
     begin
       @system_type.entities
     rescue
-      ServiceError.new('API failed to retrieve entity list')
+      [ServiceError.new('API failed to retrieve entity list')]
     end
   end
 
@@ -30,6 +30,20 @@ class System < ActiveRecord::Base
     end
 
   end
+
+  def retrieve(entity,timestamp, page)
+    begin
+      @system_type.retrieve(entity,timestamp,page)
+    rescue
+      [ServiceError.new('API retrieval failed')]
+    end
+
+  end
+
+  def max_per_page
+    @system_type.max_per_page
+  end
+
 
   # Private methods #########################
   private

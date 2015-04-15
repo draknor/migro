@@ -18,4 +18,10 @@
 
 $(document).foundation();
 
+$(".datetime").datetimepicker({
+  format:'Y-m-d H:i'
+});
+
+
+
 

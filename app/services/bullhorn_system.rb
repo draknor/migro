@@ -34,7 +34,14 @@ class BullhornSystem < BaseSystem
 
   def self.search(entity, query)
     resp = @@client.send "search_#{entity.to_s.pluralize}", query: query
-    resp.data
+    return resp.data unless resp.data.nil?
+    []
+  end
+
+  def self.retrieve(entity,timestamp, page)
+    resp = @@client.send entity.to_s.pluralize
+    return resp.data unless resp.data.nil?
+    []
   end
 
 

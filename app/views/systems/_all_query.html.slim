@@ -1,0 +1,20 @@
+= form_tag test_system_path, method: :get
+  .field.row
+    .medium-2.columns
+      | Find all
+    .medium-3.columns
+      - param_entity = @params.nil? ? nil : @params[:entity]
+      = select_tag :entity, options_for_select(@system.entities, param_entity), include_blank: false
+    .medium-1.columns
+      | records
+    .medium-1.columns
+      | page
+    .medium-1.columns
+      - param_query = @params.nil? ? 1 : @params[:page]
+      = text_field_tag :page, param_query
+    .medium-4.columns
+      = hidden_field_tag :all, true
+  .field.row
+    .small-12.small-centered.columns.text-center
+      input.button.small type="submit" value="Retrieve"
+

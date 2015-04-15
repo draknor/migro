@@ -1,6 +1,8 @@
 class SystemsController < ApplicationController
   before_action :set_system, only: [:show, :edit, :update, :destroy, :test]
 
+  include SystemsHelper
+
   # GET /systems
   def index
     @systems = System.all
@@ -21,8 +23,31 @@ class SystemsController < ApplicationController
 
   # GET /systems/1/test
   def test
+    puts "[debug] SystemsController#test: System.system_type = #{@system}.#{@system.system_type}"
+    puts "[debug] SystemsController#test: Entities = #{@system.entities}"
+    # @system.entities  # Rails seems to be caching this obj in the view across calls
     @params = params
-    @results = @params[:query].blank? ? nil : @system.search(@params[:entity],@params[:query])
+
+    # enforce 'page' valid value
+    page = @params[:page].to_i
+    @params[:page] = page < 1 ? 1 : page
+
+    @results = nil
+    unless @params[:query].blank?
+      @results = @system.search(@params[:entity],@params[:query])
+      @results_header = "Search Results #{page_record_range(@results.count,@params[:page],@system.max_per_page)} for '[#{@params[:entity]}] #{@params[:query]}'"
+    end
+
+    unless @params[:recent].blank?
+      time = @params[:recent].to_time(:utc)
+      @results = @system.retrieve(@params[:entity],time,@params[:page])
+      @results_header = "Updates for #{page_record_range(@results.count,@params[:page],@system.max_per_page)} #{params[:entity]} records since #{time}"
+    end
+
+    if @params[:all] = 'true'
+      @results = @system.retrieve(@params[:entity],nil,@params[:page])
+      @results_header = "Listing #{page_record_range(@results.count,@params[:page],@system.max_per_page)} #{params[:entity]} records"
+    end
   end
 
   # POST /systems
