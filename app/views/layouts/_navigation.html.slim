@@ -9,8 +9,12 @@
       li.toggle-topbar.menu-icon
         a href="#" <span></span>
     section.top-bar-section
-      /ul.left
-      /  - if user_signed_in?
+      ul.left
+        li.divider
+        - if user_signed_in?
+          li
+            = link_to 'Runs', migration_runs_path
+        li.divider
       ul.right
         li.divider
         - if user_signed_in?

@@ -1,6 +1,6 @@
 class HighriseSystem < BaseSystem
 
-  @@entities = [
+  @entities = [
       :account, :comment, :company, :deal, :deal_category, :email, :group, :case, :membership,
       :note, :party, :person, :recording, :subject, :tag, :task, :task_category, :user
   ]
@@ -16,6 +16,10 @@ class HighriseSystem < BaseSystem
   end
 
   def self.search(entity, query)
+    puts "[debug] HighriseSystem#search: #{entity}, #{query}"
+    if query == query.to_i.to_s  # assume query = entity_id if query is an integer
+      return [get(entity,query)]
+    end
     mod = entity.to_s.camelize
     results = Highrise.const_get(mod).search(term: query)
     return [] if results.nil?
@@ -34,6 +38,18 @@ class HighriseSystem < BaseSystem
     return [] if results.nil?
     results
   end
+
+  def self.get(entity, entity_id)
+    puts "[debug] HighriseSystem#search: #{entity}, #{entity_id}"
+    mod = entity.to_s.camelize
+    result = Highrise.const_get(mod).find(entity_id)
+    result
+  end
+
+  def self.query(entity, where)
+
+  end
+
 
 
 end

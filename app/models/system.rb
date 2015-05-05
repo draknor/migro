@@ -40,6 +40,50 @@ class System < ActiveRecord::Base
 
   end
 
+  def get(entity,entity_id)
+    return [] if entity.blank? || entity_id.blank?
+    begin
+      @system_type.get(entity,entity_id)
+    rescue
+      [ServiceError.new('API get failed')]
+    end
+
+  end
+
+  def get_meta(entity)
+    return [] if entity.blank?
+    begin
+      @system_type.get_meta(entity)
+    rescue
+      [ServiceError.new('API get_meta failed')]
+    end
+  end
+
+  def get_option(option_type)
+    return [] if option_type.blank?
+    begin
+      @system_type.get_option(option_type)
+    rescue
+      [ServiceError.new('API get_option failed')]
+    end
+  end
+
+  def create(entity,attributes)
+    begin
+      @system_type.create(entity,attributes)
+    rescue
+      ServiceError.new('API create failed')
+    end
+  end
+
+  def update(entity,id,attributes)
+    begin
+      @system_type.update(entity,id,attributes)
+    rescue
+      ServiceError.new('API update failed')
+    end
+  end
+
   def max_per_page
     @system_type.max_per_page
   end

@@ -1,10 +1,10 @@
 class BullhornSystem < BaseSystem
 
-  @@conn_options = {
+  @conn_options = {
 
   }
 
-  @@client ||= Bullhorn::Rest::Client.new(
+  @client ||= Bullhorn::Rest::Client.new(
       username: Rails.application.secrets[:bullhorn][:username],
       password: Rails.application.secrets[:bullhorn][:password],
       client_id: Rails.application.secrets[:bullhorn][:client_id],
@@ -13,7 +13,7 @@ class BullhornSystem < BaseSystem
       rest_host: Rails.application.secrets[:bullhorn][:rest_host]
   )
 
-  @@entities = [
+  @entities = [
       :appointment, :appointment_attendee, :business_sector, :candidate, :candidate_certification,
       :candidate_education, :candidate_reference, :candidate_work_history, :category, :client_contact,
       :client_corporation, :corporate_user, :corporation_department, :country, :custom_action, :job_order,
@@ -24,25 +24,62 @@ class BullhornSystem < BaseSystem
 
   # really just for debugging purposes
   def self.client_obj
-    @@client
+    @client
   end
 
   def self.account_info
-    # @@client.settings
-    JSON.parse @@client.settings.data.to_json
+    # @client.settings
+    JSON.parse @client.settings.data.to_json
   end
 
   def self.search(entity, query)
-    resp = @@client.send "search_#{entity.to_s.pluralize}", query: query
+    if query == query.to_i.to_s  # assume query = entity_id if query is an integer
+      # return [get_data(entity,query)]
+      return [get_meta(entity)]  # DEBUG
+    end
+    resp = @client.send "search_#{entity.to_s.pluralize}", query: query
     return resp.data unless resp.data.nil?
     []
   end
 
   def self.retrieve(entity,timestamp, page)
-    resp = @@client.send entity.to_s.pluralize
+    resp = @client.send entity.to_s.pluralize
     return resp.data unless resp.data.nil?
     []
   end
 
+  def self.get(entity, entity_id)
+    resp = @client.send entity.to_s, entity_id
+    return resp.data unless resp.data.nil?
+  end
 
+  def self.query(entity, where)
+  end
+
+  def self.get_meta(entity)
+    resp = @client.send entity.to_s, 1,{meta: 'full'}
+    return resp.meta unless resp.meta.nil?
+  end
+
+  def self.get_option(option_type, value='*')
+    start = 0
+    count = 300
+    data = []
+
+    begin
+      resp = @client.option(option_type, value, {start: start, count: count})
+      data.concat(resp.data) unless resp.data.nil?
+      start = start+count
+    end until resp.data.nil? || resp.data.empty?
+    data
+  end
+
+
+  def self.create(entity,attributes)
+    @client.send "create_#{entity}", attributes
+  end
+
+  def self.update(entity,id,attributes)
+    @client.send "update_#{entity}", id, attributes
+  end
 end

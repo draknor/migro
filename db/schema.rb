@@ -11,7 +11,39 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 20150313024908) do
+ActiveRecord::Schema.define(version: 20150505151902) do
+
+  create_table "migration_logs", force: :cascade do |t|
+    t.integer  "log_type",         limit: 4
+    t.integer  "migration_run_id", limit: 4
+    t.string   "message",          limit: 255
+    t.string   "source_id",        limit: 255
+    t.string   "target_id",        limit: 255
+    t.text     "target_before",    limit: 65535
+    t.text     "target_after",     limit: 65535
+    t.datetime "created_at",                     null: false
+    t.datetime "updated_at",                     null: false
+    t.text     "source_before",    limit: 65535
+    t.text     "id_list",          limit: 65535
+  end
+
+  create_table "migration_runs", force: :cascade do |t|
+    t.datetime "started_at"
+    t.datetime "ended_at"
+    t.integer  "source_system_id",      limit: 4
+    t.integer  "destination_system_id", limit: 4
+    t.integer  "user_id",               limit: 4
+    t.string   "entity_type",           limit: 255
+    t.integer  "records_migrated",      limit: 4
+    t.integer  "max_records",           limit: 4
+    t.integer  "status",                limit: 4,     default: 0
+    t.string   "name",                  limit: 255
+    t.datetime "created_at",                                      null: false
+    t.datetime "updated_at",                                      null: false
+    t.boolean  "all_records",           limit: 1
+    t.text     "record_list",           limit: 65535
+    t.integer  "phase",                 limit: 4
+  end
 
   create_table "systems", force: :cascade do |t|
     t.string   "name",             limit: 255

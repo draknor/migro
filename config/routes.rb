@@ -1,15 +1,21 @@
 Rails.application.routes.draw do
 
+  get 'home/index'
+
+  devise_for :users
+  root to: 'home#index'
+
+  resources :migration_runs do
+    member do
+      get 'execute'
+    end
+  end
   resources :systems do
     member do
       get 'test'
     end
   end
 
-  get 'home/index'
-
-  devise_for :users
-  root to: 'home#index'
 
 
   # The priority is based upon order of creation: first created -> highest priority.

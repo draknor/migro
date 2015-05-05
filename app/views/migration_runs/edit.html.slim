@@ -1,0 +1,6 @@
+.row
+  .large-10.large-centered.columns
+    h3 Edit Migration Run
+    .panel.radius
+      = render 'form', button_description: 'Update', form_url: migration_run_path
+    = link_to 'Back', migration_runs_path, class: 'button tiny'

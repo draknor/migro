@@ -1,0 +1,6 @@
+.row
+  .large-10.large-centered.columns
+    h3 New Migration Run
+    .panel.radius
+      = render 'form', button_description: 'Create', form_url: migration_runs_path
+    = link_to 'Back', migration_runs_path, class: 'button tiny'

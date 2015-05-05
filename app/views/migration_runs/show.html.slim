@@ -1,0 +1,88 @@
+.row
+  .medium-12.columns
+    h3 Run Detail
+    table
+      thead
+        tr
+          td Name
+          td Status
+          td User
+          td Entity
+          td Phase
+          td Source
+          td Destination
+          td Started
+          td Ended
+          td Records
+      tbody
+        tr
+          td = link_to @migration_run.name, @migration_run
+          td = @migration_run.status
+          td = @migration_run.user.name unless @migration_run.user.nil?
+          td = @migration_run.entity_type
+          td = @migration_run.phase
+          td = @migration_run.source_system.name unless @migration_run.source_system.nil?
+          td = @migration_run.destination_system.name unless @migration_run.destination_system.nil?
+          td = @migration_run.started_at
+          td = @migration_run.ended_at
+          td = "#{@migration_run.records_migrated.to_i}  / #{@migration_run.max_records}" unless @migration_run.max_records.nil?
+.row
+  .medium-6.columns
+    h3 Error Logs
+    table
+      thead
+        tr
+          th Date/Time
+          th Error Message
+          th Error Quantity
+      tbody
+        - @migration_run.migration_logs.error.each do |log|
+          tr
+            td = log.created_at
+            td = log.message
+            td
+              a data-dropdown="log#{log.id}err" aria-controls="log#{log.id}err" aria-expanded="false" #{log.error_count}
+              div id="log#{log.id}err" data-dropdown-content="" class="small f-dropdown content" aria-hidden="true" tabindex="-1"
+                pre
+                  = log.id_list
+
+  .medium-6.columns
+    h3 Info Logs
+    table
+      thead
+        tr
+          th Date/Time
+          th Source ID
+          th Target ID
+          th Message
+          th Source Before
+          th Target Before
+          th Target After
+      tbody
+        - @migration_run.migration_logs.mapped.each do |log|
+          tr
+            td = log.created_at
+            td = log.source_id
+            td = log.target_id
+            td = log.message
+            td
+              a data-dropdown="log#{log.id}src" aria-controls="log#{log.id}src" aria-expanded="false" Source
+              div id="log#{log.id}src" data-dropdown-content="" class="large f-dropdown content" aria-hidden="true" tabindex="-1"
+                pre
+                  = JSON.pretty_generate(JSON.parse log.source_before)
+            td
+              a data-dropdown="log#{log.id}bef" aria-controls="log#{log.id}bef" aria-expanded="false" Before
+              div id="log#{log.id}bef" data-dropdown-content="" class="large f-dropdown content" aria-hidden="true" tabindex="-1"
+                pre
+                  = JSON.pretty_generate(JSON.parse log.target_before)
+            td
+              a data-dropdown="log#{log.id}aft" aria-controls="log#{log.id}aft" aria-expanded="false" After
+              div id="log#{log.id}aft" data-dropdown-content="" class="large f-dropdown content" aria-hidden="true" tabindex="-1"
+                pre
+                  = JSON.pretty_generate(JSON.parse log.target_after)
+.row
+  = link_to 'Execute', execute_migration_run_path(@migration_run), class: 'button tiny' if @migration_run.created?
+  | &nbsp;
+  = link_to 'Edit', edit_migration_run_path(@migration_run), class: 'button tiny'
+  | &nbsp;
+  = link_to 'Back', migration_runs_path, class: 'button tiny'

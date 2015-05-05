@@ -1,0 +1,56 @@
+= simple_form_for @migration_run, :url => form_url do |f|
+  - if @migration_run.errors.any?
+    #error_explanation
+      h2
+        = pluralize(@migration_run.errors.count, "error")
+        |  prohibited this system from being saved:
+      ul
+        - @migration_run.errors.full_messages.each do |message|
+          li
+            = message
+  .form-inputs
+    .field.row
+      .small-2.columns.text-right
+        = f.label :name
+      .small-10.columns
+        = f.input :name, label: false
+
+    .field.row
+      .small-2.columns.text-right
+        = f.label :source_system
+      .small-10.columns
+        = f.association :source_system, label: false
+
+    .field.row
+      .small-2.columns.text-right
+        = f.label :destination_system
+      .small-10.columns
+        = f.association :destination_system, label: false
+
+    .field.row
+      .small-2.columns.text-right
+        = f.label :entity_type
+      .small-10.columns
+        = f.input :entity_type, label: false, collection: HighriseSystem.entities
+
+    .field.row
+      .small-2.columns.text-right
+        = f.label :phase
+      .small-10.columns
+        = f.input :phase, label: false, collection: MigrationRun.phases.keys
+
+    .field.row
+      .small-2.columns.text-right
+        = f.label :all_records
+      .small-10.columns
+        = f.input :all_records, label: false
+
+    .field.row
+      .small-2.columns.text-right
+        = f.label :record_list
+      .small-10.columns
+        = f.input :record_list, label: false
+
+  .form-actions
+    .field.row.text-center
+      = f.button :submit, button_description, class: 'button small radius'

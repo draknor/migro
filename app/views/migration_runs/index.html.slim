@@ -1,0 +1,26 @@
+.row
+  .large-10.large-centered.columns
+    h3 Listing Migration Runs
+    table
+      thead
+        tr
+          td Name
+          td Entity
+          td Phase
+          td Status
+          td Started / Ended
+          td Records
+          td.text-center[colspan=2] Actions
+      tbody
+        - @migration_runs.each do |run|
+          tr
+            td = link_to run.name, run
+            td = run.entity_type
+            td = run.status
+            td = run.phase
+            td = "#{run.started_at} / #{run.ended_at}" unless run.started_at.nil?
+            td = "#{run.records_migrated.to_i} / #{run.max_records}" unless run.max_records.nil?
+            td = link_to 'Edit', edit_migration_run_path(run), class: 'button tiny' if run.created?
+            td = link_to 'Execute', execute_migration_run_path(run), class: 'button tiny' if run.created?
+    br
+    = link_to 'New Run', new_migration_run_path, class: 'button tiny'
