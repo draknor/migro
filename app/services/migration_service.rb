@@ -28,6 +28,10 @@ class MigrationService
     @run.preparing!
 
     error_check unless @ready
+    if @error.count > 0
+      @run.canceled!
+      return
+    end
 
     # the rest of this won't be pretty, but I just want to make it functional
     @run.started_at = Time.now
@@ -60,8 +64,6 @@ class MigrationService
 
     if @error.count == 0
       @ready = true
-    else
-      @run.canceled!
     end
   end
 

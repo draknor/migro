@@ -49,6 +49,8 @@ gem 'highrise', git: 'https://github.com/draknor/highrise.git', :branch => 'add_
 gem 'bullhorn-rest', git: 'https://github.com/draknor/bullhorn-rest.git', :branch => 'add_find_api'
 gem 'hashie'
 gem 'awesome_print'
+gem 'delayed_job_active_record'
+gem 'daemons'
 
 group :development, :test do
   gem 'quiet_assets'

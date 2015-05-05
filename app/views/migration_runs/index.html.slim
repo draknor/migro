@@ -6,8 +6,8 @@
         tr
           td Name
           td Entity
-          td Phase
           td Status
+          td Phase
           td Started / Ended
           td Records
           td.text-center[colspan=2] Actions
@@ -18,7 +18,7 @@
             td = run.entity_type
             td = run.status
             td = run.phase
-            td = "#{run.started_at} / #{run.ended_at}" unless run.started_at.nil?
+            td = "#{format_time(run.started_at)} / #{format_time(run.ended_at)}" unless run.started_at.nil?
             td = "#{run.records_migrated.to_i} / #{run.max_records}" unless run.max_records.nil?
             td = link_to 'Edit', edit_migration_run_path(run), class: 'button tiny' if run.created?
             td = link_to 'Execute', execute_migration_run_path(run), class: 'button tiny' if run.created?

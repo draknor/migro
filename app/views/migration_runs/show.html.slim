@@ -5,8 +5,7 @@
       thead
         tr
           td Name
-          td Status
-          td User
+          td[colspan=2] Status
           td Entity
           td Phase
           td Source
@@ -17,14 +16,18 @@
       tbody
         tr
           td = link_to @migration_run.name, @migration_run
-          td = @migration_run.status
-          td = @migration_run.user.name unless @migration_run.user.nil?
+          td#status = @migration_run.status
+          td
+            #spinner[style='display:none']
+              = image_tag 'ajax-loader.gif', size: '32x32'
+            #pause[style='display:none']
+              = image_tag 'pause.png', size: '32x32'
           td = @migration_run.entity_type
           td = @migration_run.phase
           td = @migration_run.source_system.name unless @migration_run.source_system.nil?
           td = @migration_run.destination_system.name unless @migration_run.destination_system.nil?
-          td = @migration_run.started_at
-          td = @migration_run.ended_at
+          td = format_time(@migration_run.started_at)
+          td = format_time(@migration_run.ended_at)
           td = "#{@migration_run.records_migrated.to_i}  / #{@migration_run.max_records}" unless @migration_run.max_records.nil?
 .row
   .medium-6.columns
@@ -38,7 +41,7 @@
       tbody
         - @migration_run.migration_logs.error.each do |log|
           tr
-            td = log.created_at
+            td = format_time(log.created_at)
             td = log.message
             td
               a data-dropdown="log#{log.id}err" aria-controls="log#{log.id}err" aria-expanded="false" #{log.error_count}
@@ -54,24 +57,19 @@
           th Date/Time
           th Source ID
           th Target ID
+          th Target Updates
           th Message
-          th Source Before
-          th Target Before
-          th Target After
       tbody
         - @migration_run.migration_logs.mapped.each do |log|
           tr
-            td = log.created_at
-            td = log.source_id
-            td = log.target_id
-            td = log.message
+            td = format_time(log.created_at)
             td
-              a data-dropdown="log#{log.id}src" aria-controls="log#{log.id}src" aria-expanded="false" Source
+              a data-dropdown="log#{log.id}src" aria-controls="log#{log.id}src" aria-expanded="false" #{log.source_id}
               div id="log#{log.id}src" data-dropdown-content="" class="large f-dropdown content" aria-hidden="true" tabindex="-1"
                 pre
                   = JSON.pretty_generate(JSON.parse log.source_before)
             td
-              a data-dropdown="log#{log.id}bef" aria-controls="log#{log.id}bef" aria-expanded="false" Before
+              a data-dropdown="log#{log.id}bef" aria-controls="log#{log.id}bef" aria-expanded="false" #{log.target_id.blank? ? '(none)' : log.target_id}
               div id="log#{log.id}bef" data-dropdown-content="" class="large f-dropdown content" aria-hidden="true" tabindex="-1"
                 pre
                   = JSON.pretty_generate(JSON.parse log.target_before)
@@ -80,6 +78,7 @@
               div id="log#{log.id}aft" data-dropdown-content="" class="large f-dropdown content" aria-hidden="true" tabindex="-1"
                 pre
                   = JSON.pretty_generate(JSON.parse log.target_after)
+            td = log.message
 .row
   = link_to 'Execute', execute_migration_run_path(@migration_run), class: 'button tiny' if @migration_run.created?
   | &nbsp;

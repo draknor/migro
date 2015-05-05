@@ -39,9 +39,11 @@ class MigrationRunsController < ApplicationController
       migration.error_check
       if migration.error.count > 0
         flash[:error] = 'Execution preparation errors: ' + migration.error.join(', ')
+      elsif MigrationJob.perform_later(@migration_run.id)
+        flash[:notice] = 'Execution has been queued'
+        @migration_run.queued!
       else
-        flash[:notice] = 'Execution has started'
-        migration.run
+        flash[:error] = 'Unknown error occurred'
       end
       redirect_to migration_run_path(@migration_run)
     end
