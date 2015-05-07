@@ -13,7 +13,8 @@
  *= require_tree .
  *= require_self
  *= require foundation
-
+ *= require dataTables/jquery.dataTables.foundation
+ *= require dataTables/extras/dataTables.tableTools
  */
 
 

@@ -51,6 +51,9 @@ gem 'hashie'
 gem 'awesome_print'
 gem 'delayed_job_active_record'
 gem 'daemons'
+gem 'jquery-ui-rails'
+gem 'jquery-ui-sass-rails'
+gem 'jquery-datatables-rails'
 
 group :development, :test do
   gem 'quiet_assets'

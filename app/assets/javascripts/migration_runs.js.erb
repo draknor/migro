@@ -1,0 +1,83 @@
+
+$(document).ready( function() {
+  if ($("body.migration_runs_show").length) {
+    check_spinner();
+    set_refresh();
+
+    $('#spinner').click( function() {
+      clear_refresh();
+      $('#spinner').hide();
+      $('#pause').show();
+    })
+
+    $('#pause').click( function() {
+      $('#pause').hide();
+      $('#spinner').show();
+      set_refresh();
+    })
+
+    $('table#info').DataTable({
+      ordering: false,
+      dom: 'T<"clear">lfrtip',
+      tableTools: {
+        "sSwfPath": "<%= asset_path('copy_csv_xls_pdf.swf') %>",
+        "aButtons": [
+          {
+            "sExtends": "xls",
+            "sFileName": $('#run_name').text() + " - " + (new Date()).toISOString().split("T")[0] + " - info.csv",
+            "mColumns": [ 0, 1, 2, 3, 4 ]
+          },
+          {
+            "sExtends": "pdf",
+            "sFileName": $('#run_name').text() + " - " + (new Date()).toISOString().split("T")[0] + " - info.pdf",
+            "mColumns": [ 0, 1, 2, 3, 4 ]
+          }
+        ]
+      }
+    });
+
+    $('table#errors').DataTable({
+      ordering: false,
+      dom: 'T<"clear">lfrtip',
+      tableTools: {
+        "sSwfPath": "<%= asset_path('copy_csv_xls_pdf.swf') %>",
+        "aButtons": [
+          {
+            "sExtends": "xls",
+            "sFileName": $('#run_name').text() + " - " + (new Date()).toISOString().split("T")[0] + " - errors.csv"
+          },
+          {
+            "sExtends": "pdf",
+            "sFileName": $('#run_name').text() + " - " + (new Date()).toISOString().split("T")[0] + " - errors.pdf"
+          }
+        ]
+      }
+    });
+
+  }
+});
+
+
+function check_spinner() {
+  var status = $('#status').text();
+  if (status == 'preparing' || status == 'running' || status == 'queued') {
+    $('#spinner').show();
+  } else {
+    $('#spinner').hide();
+  }
+}
+
+function set_refresh() {
+  if ($('#spinner').is(':visible')) {
+    $('body').data('reload', setInterval("page_reload();",5000));
+  }
+}
+
+function clear_refresh() {
+  clearInterval($('body').data('reload'));
+
+}
+
+function page_reload(){
+  window.location = location.href;
+}

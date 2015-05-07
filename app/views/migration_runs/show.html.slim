@@ -15,7 +15,7 @@
           td Records
       tbody
         tr
-          td = link_to @migration_run.name, @migration_run
+          td#run_name = link_to @migration_run.name, @migration_run
           td#status = @migration_run.status
           td
             #spinner[style='display:none']
@@ -32,12 +32,13 @@
 .row
   .medium-6.columns
     h3 Error Logs
-    table
+    table#errors
       thead
         tr
           th Date/Time
           th Error Message
           th Error Quantity
+          th &nbsp;
       tbody
         - @migration_run.migration_logs.error.each do |log|
           tr
@@ -45,13 +46,14 @@
             td = log.message
             td
               a data-dropdown="log#{log.id}err" aria-controls="log#{log.id}err" aria-expanded="false" #{log.error_count}
+            td
               div id="log#{log.id}err" data-dropdown-content="" class="small f-dropdown content" aria-hidden="true" tabindex="-1"
                 pre
                   = log.id_list
 
   .medium-6.columns
     h3 Info Logs
-    table
+    table#info
       thead
         tr
           th Date/Time
@@ -59,26 +61,28 @@
           th Target ID
           th Target Updates
           th Message
+          th &nbsp;
       tbody
         - @migration_run.migration_logs.mapped.each do |log|
           tr
             td = format_time(log.created_at)
             td
               a data-dropdown="log#{log.id}src" aria-controls="log#{log.id}src" aria-expanded="false" #{log.source_id}
+            td
+              a data-dropdown="log#{log.id}bef" aria-controls="log#{log.id}bef" aria-expanded="false" #{log.target_id.blank? ? '(none)' : log.target_id}
+            td
+              a data-dropdown="log#{log.id}aft" aria-controls="log#{log.id}aft" aria-expanded="false" After
+            td = log.message
+            td
               div id="log#{log.id}src" data-dropdown-content="" class="large f-dropdown content" aria-hidden="true" tabindex="-1"
                 pre
                   = JSON.pretty_generate(JSON.parse log.source_before)
-            td
-              a data-dropdown="log#{log.id}bef" aria-controls="log#{log.id}bef" aria-expanded="false" #{log.target_id.blank? ? '(none)' : log.target_id}
               div id="log#{log.id}bef" data-dropdown-content="" class="large f-dropdown content" aria-hidden="true" tabindex="-1"
                 pre
                   = JSON.pretty_generate(JSON.parse log.target_before)
-            td
-              a data-dropdown="log#{log.id}aft" aria-controls="log#{log.id}aft" aria-expanded="false" After
               div id="log#{log.id}aft" data-dropdown-content="" class="large f-dropdown content" aria-hidden="true" tabindex="-1"
                 pre
                   = JSON.pretty_generate(JSON.parse log.target_after)
-            td = log.message
 .row
   = link_to 'Execute', execute_migration_run_path(@migration_run), class: 'button tiny' if @migration_run.created?
   | &nbsp;

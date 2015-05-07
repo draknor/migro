@@ -13,6 +13,9 @@
 //= require jquery
 //= require jquery_ujs
 //= require foundation
+//= require dataTables/jquery.dataTables
+//= require dataTables/jquery.dataTables.foundation
+//= require dataTables/extras/dataTables.tableTools
 //= require_tree .
 
 $(document).foundation();
@@ -20,6 +23,12 @@ $(document).foundation();
 $(".datetime").datetimepicker({
   format:'Y-m-d H:i'
 });
+
+$.extend( $.fn.DataTable.defaults, {
+  paging: false
+  //ordering:  false
+} );
+
 
 
 
