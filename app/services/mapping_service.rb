@@ -65,7 +65,7 @@ class MappingService
                   when :highrise
                     case field.to_sym
                       when :state
-                        us_state = STATES[value.to_sym] unless value.blank?
+                        us_state = STATES[value.upcase.to_sym] unless value.blank?
                         us_state.blank? ? value : us_state
                       when :customText10
                         {"bluetree's" => 'bluetree sow',

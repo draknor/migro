@@ -1,7 +1,7 @@
 class MigrationService
   include ActionView::Helpers::NumberHelper
 
-  attr_reader :error
+  attr_reader :error, :valid_entity_maps
 
   def initialize(migration_run)
     @run = migration_run
@@ -41,6 +41,20 @@ class MigrationService
       self.send "migrate_#{@source_entity}", entity_id
     end
 
+    if @run.all_records
+      page = 0
+      max = (@run.max_records == -1) ? 0 : @run.max_records
+      begin
+        page = page + 1
+        entities = @source.retrieve(@source_entity,nil,page)
+        max = max + entities.count
+        @run.update(max_records: max)
+        entities.each do |entity|
+          self.send "migrate_#{@source_entity}", entity.id, entity
+        end
+      end while entities.count > 0
+    end
+
     @run.ended_at = Time.now
     if @error_logs.keys.count > 0
       @run.completed_error!
@@ -67,16 +81,21 @@ class MigrationService
     end
   end
 
+  def rescue_after_error
+    @run.ended_at = Time.now
+    @run.completed_error!
+  end
 
-  def migrate_company(entity_id)
-    source_entity = @source.get(@source_entity, entity_id)
+  def migrate_company(entity_id, source_entity = nil)
+    puts "[debug] #migrate_company id=#{entity_id}"
+    source_entity = @source.get(@source_entity, entity_id) if source_entity.nil?
     if source_entity.nil?
       migration_failed("Could not find entity with ID #{entity_id} in #{@source.system_type}")
       return
     end
 
     target_entities = @target.search(@target_entity,"customInt1:#{entity_id}")
-    if target_entities.count == 0 && !@run.create_shell?
+    if target_entities.count == 0 && !(@run.create_shell? || @run.test_only?)
       migration_failed("No target record found with source ID #{entity_id} and phase is NOT 'create_shell'")
       return
     end
@@ -104,7 +123,7 @@ class MigrationService
         value_attrib: :value
     }
     data_contact = source_entity.contact_data.attributes
-    data_custom = source_entity.subject_datas.map {|n| n.attributes}
+    data_custom = source_entity.subject_datas.map {|n| n.attributes} if source_entity.respond_to?(:subject_datas)
 
     target_update = {
       name: source_entity.name,
@@ -144,21 +163,25 @@ class MigrationService
     msg = ''
     target_entity_id = target_entity[:id]
 
-    if target_entity.empty?
-      result = @target.create(@target_entity, target_update)
-      target_entity_id = result[:changedEntityId] if result.class == Hashie::Mash && !result[:changedEntityId].nil?
+    if @run.test_only?
+      msg = "(test only)"
     else
-      result = @target.update(@target_entity, target_entity[:id], target_update)
-    end
+      if target_entity.empty?
+        result = @target.create(@target_entity, target_update)
+        target_entity_id = result[:changedEntityId] if result.class == Hashie::Mash && !result[:changedEntityId].nil?
+      else
+        result = @target.update(@target_entity, target_entity[:id], target_update)
+      end
 
-    if result.class == ServiceError
-      msg = result.message
-    elsif result[:errorMessage]
-      msg = "Error: " + (result[:errors].map {|n| n[:detailMessage]}).join('; ')
-    elsif result[:changeType]
-      msg = "Target record #{result[:changeType].downcase}'d"
-    else
-      msg = "Unknown result"
+      if result.class == ServiceError
+        msg = result.message
+      elsif result[:errorMessage]
+        msg = "Error: " + (result[:errors].map {|n| n[:detailMessage]}).join('; ')
+      elsif result[:changeType]
+        msg = "Target record #{result[:changeType].downcase}'d"
+      else
+        msg = "Unknown result"
+      end
     end
 
     log_migration({source_entity: source_entity, target_entity_id: target_entity_id, target_before: target_entity, target_after: target_update, message: msg})
@@ -206,7 +229,7 @@ class MigrationService
 
     transform_val.downcase!
 
-    log_error("No mapped value found for #{val} (transformed to #{transform_val}) in #{field}") if @mapping_values[field][transform_val].blank?
+    log_error("No mapped value found for '#{val}' #{val == transform_val ? '' : "(transformed to #{transform_val})"} in #{field}") if @mapping_values[field][transform_val].blank?
 
     @mapping_values[field][transform_val]
   end

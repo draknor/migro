@@ -31,7 +31,7 @@ class System < ActiveRecord::Base
 
   end
 
-  def retrieve(entity,timestamp, page)
+  def retrieve(entity,timestamp,page)
     begin
       @system_type.retrieve(entity,timestamp,page)
     rescue

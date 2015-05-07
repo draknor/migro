@@ -1,7 +1,7 @@
 class MigrationRun < ActiveRecord::Base
 
   enum status: [ :created, :preparing, :running, :completed_success, :completed_error, :canceled, :unknown, :queued ]
-  enum phase: [:create_shell, :add_dependencies]
+  enum phase: [:test_only, :create_shell, :add_dependencies]
   before_save :update_max_records
 
   belongs_to :user
@@ -36,6 +36,8 @@ class MigrationRun < ActiveRecord::Base
     self.started_at = nil
     self.ended_at= nil
     self.records_migrated = nil
+    self[:max_records] = nil
+    update_max_records
     self.created!
     self.migration_logs.each {|log| log.delete}
   end

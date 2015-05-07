@@ -10,7 +10,7 @@ class MigrationLog < ActiveRecord::Base
   end
 
   def add_id(id)
-    self.id_list = self.id_list.nil? ? id : self.id_list + "\n" + id
+    self.id_list = self.id_list.nil? ? id.to_s : self.id_list + "\n" + id.to_s
   end
 
   def add_id!(id)
