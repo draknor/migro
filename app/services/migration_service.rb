@@ -224,7 +224,7 @@ class MigrationService
     # puts "[debug] map_value: field = #{field}, value = #{val}"
     cache_values(field, parent_field) if @mapping_values[field].nil?
 
-    transform_val = MappingService.transform(@source.integration_type,field,val)
+    transform_val = MappingService.transform(@target.integration_type,field,val)
 
     return '' if val.blank?
 

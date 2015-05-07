@@ -62,11 +62,13 @@ class MappingService
     # puts "[debug] transform: system_type: #{system_type}, field: #{field}, value: #{value}"
 
     new_value = case system_type.to_sym
-                  when :highrise
+                  when :bullhorn
                     case field.to_sym
                       when :state
                         us_state = STATES[value.upcase.to_sym] unless value.blank?
                         us_state.blank? ? value : us_state
+                      when :countryID
+                        value.blank? ? 'United States' : value
                       when :customText10
                         {"bluetree's" => 'bluetree sow',
                          "client's"   => 'client sow'}[value.downcase] unless value.blank?
