@@ -176,7 +176,8 @@ class MigrationService
       if result.class == ServiceError
         msg = result.message
       elsif result[:errorMessage]
-        msg = "Error: " + (result[:errors].map {|n| n[:detailMessage]}).join('; ')
+        result[:errors].each {|n| log_error("API Error: #{n[:detailMessage]}") }
+        msg = "Target save failed: " + (result[:errors].map {|n| n[:detailMessage]}).join('; ')
       elsif result[:changeType]
         msg = "Target record #{result[:changeType].downcase}'d"
       else
