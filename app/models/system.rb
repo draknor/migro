@@ -84,6 +84,15 @@ class System < ActiveRecord::Base
     end
   end
 
+  def add_association(entity,id,assoc_entity,values)
+    begin
+      @system_type.add_association(entity,id,assoc_entity,values)
+    rescue
+      ServiceError.new('API add_association failed')
+    end
+  end
+
+
   def max_per_page
     @system_type.max_per_page
   end

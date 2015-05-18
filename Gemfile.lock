@@ -1,7 +1,7 @@
 GIT
   remote: https://github.com/draknor/bullhorn-rest.git
-  revision: a68cafe7c31018a160ddb594f22151a0d94b7c17
-  branch: add_find_api
+  revision: 56992de9b0e4cc6854d16c830fa6aaf3b297450e
+  branch: add_creating_associations
   specs:
     bullhorn-rest (0.0.1.14)
       activesupport

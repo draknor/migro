@@ -33,9 +33,9 @@ class BullhornSystem < BaseSystem
   end
 
   def self.search(entity, query)
+    return [get_meta(entity)] if query == '-1'
     if query == query.to_i.to_s  # assume query = entity_id if query is an integer
-      # return [get_data(entity,query)]
-      return [get_meta(entity)]  # DEBUG
+      return [get(entity,query)]
     end
     resp = @client.send "search_#{entity.to_s.pluralize}", query: query
     return resp.data unless resp.data.nil?
@@ -58,6 +58,16 @@ class BullhornSystem < BaseSystem
 
   def self.get_meta(entity)
     resp = @client.send entity.to_s, 1,{meta: 'full'}
+    if resp.meta.nil?  # record with ID 1 must not exist - find another record
+      find_resp = @client.send "query_#{entity.to_s.pluralize}",{count: 1, where: 'id IS NOT NULL',fields:'id'}
+      resp = @client.send entity.to_s, find_resp.data[0][:id], {meta: 'full'} unless find_resp.data.nil?
+    end
+
+    if resp.meta.nil?  # record with ID 1 must not exist && query didn't work, try searching
+      find_resp = @client.send "search_#{entity.to_s.pluralize}", {query: 'id:[0 TO 9]', count:1, fields: 'id'}
+      resp = @client.send entity.to_s, find_resp.data[0][:id], {meta: 'full'} unless find_resp.data.nil? || find_resp.data.count == 0
+    end
+
     return resp.meta unless resp.meta.nil?
   end
 
@@ -74,12 +84,26 @@ class BullhornSystem < BaseSystem
     data
   end
 
-
   def self.create(entity,attributes)
     @client.send "create_#{entity}", attributes
   end
 
   def self.update(entity,id,attributes)
     @client.send "update_#{entity}", id, attributes
+  end
+
+  def self.add_association(entity,id,assoc_entity,values = [])
+    curr_vals = []
+    curr_resp = @client.send entity.to_s, id, {fields: assoc_entity}
+    curr_vals = curr_resp[:data][assoc_entity][:data].map {|n| n.id}
+
+    if (values - curr_vals).count < 1
+      resp = Hashie::Mash.new
+      resp.message = "All #{assoc_entity} values currently set - no updates made"
+    else
+      resp = @client.send "add_#{entity}_association", id, assoc_entity, (values - curr_vals)
+    end
+
+    resp
   end
 end

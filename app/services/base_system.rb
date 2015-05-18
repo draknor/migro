@@ -38,5 +38,10 @@ class BaseSystem
   end
 
   def self.update(entity,id,attributes)
+
+  end
+
+  def self.add_association(entity,id,assoc_entity,values)
+
   end
 end

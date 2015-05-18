@@ -1,7 +1,7 @@
 class MigrationRun < ActiveRecord::Base
 
   enum status: [ :created, :preparing, :running, :completed_success, :completed_error, :canceled, :unknown, :queued ]
-  enum phase: [:test_only, :create_shell, :add_dependencies]
+  enum phase: [:test_only, :create_shell, :add_dependencies, :add_history]
   before_save :update_max_records
 
   belongs_to :user
