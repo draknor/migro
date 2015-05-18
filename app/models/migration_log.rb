@@ -11,12 +11,17 @@ class MigrationLog < ActiveRecord::Base
   end
 
   def add_id(id)
-    self.id_list = self.id_list.nil? ? id.to_s : self.id_list + "\n" + id.to_s
+    if self.id_list.nil? || self.id_list.length == 0
+      self.id_list = id.to_s if id.to_s.length < 255
+    else
+      new_list = self.id_list + "\n" + id.to_s
+      self.id_list = new_list if new_list.length < 255
+    end
   end
 
   def add_id!(id)
     add_id(id)
-    save
+    save if self.id_list_changed?
   end
 
   def truncate_message
