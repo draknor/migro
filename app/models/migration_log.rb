@@ -2,6 +2,7 @@ class MigrationLog < ActiveRecord::Base
 
   enum log_type: [:error, :mapped]
   belongs_to :migration_run
+  before_save :truncate_message
 
   default_scope { order('created_at ASC') }
 
@@ -16,6 +17,11 @@ class MigrationLog < ActiveRecord::Base
   def add_id!(id)
     add_id(id)
     save
+  end
+
+  def truncate_message
+    puts "[debug] truncate_message"
+    self.message = self.message.truncate(254) unless self.message.nil?
   end
 
 end
