@@ -429,6 +429,7 @@ class MigrationService
   end
 
   def format_str(val,max_len = 0)
+    return nil if val.nil?
     if max_len > 0 && val.length > max_len
       log_error("String truncation (#{max_len} chars) for: #{val}")
       val = val.truncate(max_len)
