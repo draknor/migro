@@ -130,21 +130,19 @@ class MigrationService
     data_custom = source_entity.subject_datas.map {|n| n.attributes} #if source_entity.respond_to?(:subject_datas)
 
     target_type = array_search(data_custom, options_custom.merge({search_value: 'zzz Migration Flag- Contact vs Candidate'}))
-    if target_type.blank?
-      migration_failed("'Migration Flag - Contact vs Candidate' field not set")
-      return
-    end
-    target_type.downcase!
 
-    if (target_type == 'contact')
+    if target_type.blank?
+      log_error("'Migration Flag - Contact vs Candidate' field not set")
+    elsif (target_type.downcase == 'contact')
       @target_entity_type = :client_contact
       migrate_person_to_contact
-    elsif (target_type == 'candidate')
+    elsif (target_type.downcase == 'candidate')
       @target_entity_type = :candidate
       migrate_person_to_candidate
     else
-      migration_failed("'Migration Flag - Contact vs Candidate' value not recognized: '#{target_type}'")
+      log_error("'Migration Flag - Contact vs Candidate' value not recognized: '#{target_type}'")
     end
+    @run.increment_record!
 
   end
 
@@ -182,8 +180,6 @@ class MigrationService
       })
 
       update_target(target_update)
-      @run.increment_record!
-
     end
 
   end
@@ -259,9 +255,6 @@ class MigrationService
     # Need to map certs/roles => add_candidate_association
     update_target(target_update)
     update_target_assoc(target_update_assoc) unless target_update_assoc.empty?
-    @run.increment_record!
-
-
   end
 
 
