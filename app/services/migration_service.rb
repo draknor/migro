@@ -149,6 +149,42 @@ class MigrationService
   end
 
   def migrate_person_to_contact
+    puts "[debug] #migrate_person_to_contact id=#{@current[:source_id]}"
+    get_target_entity
+    return if @current[:target_entity].nil?  # failed
+
+    source_entity = @current[:source_entity]
+    target_update = {}
+    data_contact = source_entity.contact_data.attributes
+    data_custom = source_entity.respond_to?(:subject_datas) ? source_entity.subject_datas.map {|n| n.attributes} : []
+
+    if @run.test_only? || @run.create_shell?
+      # dateAdded: format_timestamp(source_entity.created_at),
+      target_update.merge!({
+         firstName: source_entity.first_name,
+         lastName: source_entity.last_name,
+         name: source_entity.first_name + ' ' + source_entity.last_name,
+         customInt1: @current[:source_id],
+         occupation: format_str(source_entity.title,50),
+         mobile: format_phone(array_search(data_contact['phone_numbers'], options_work.merge({value_attrib: :number, search_value: 'Mobile'}))),
+         workPhone: format_phone(array_search(data_contact['phone_numbers'], options_work.merge({value_attrib: :number}))),
+         email: array_search(data_contact['email_addresses'], options_work.merge({value_attrib: :address})),
+         email2: array_search(data_contact['email_addresses'], options_home.merge({value_attrib: :address})),
+         address: {
+             address1:  format_address( array_search(data_contact['addresses'], options_work.merge({value_attrib: :street})),1),
+             address2:  format_address( array_search(data_contact['addresses'], options_work.merge({value_attrib: :street})),2),
+             city:                      array_search(data_contact['addresses'], options_work.merge({value_attrib: :city})),
+             state:     map_value(:state, array_search(data_contact['addresses'], options_work.merge({value_attrib: :state})), :address),
+             zip:                       array_search(data_contact['addresses'], options_work.merge({value_attrib: :zip})),
+             countryID: map_value(:countryID, array_search(data_contact['addresses'], options_work.merge({value_attrib: :country})), :address)
+         },
+         clientCorporation: map_assoc(:clientCorporation, source_entity.company_id)
+      })
+
+      update_target(target_update)
+      @run.increment_record!
+
+    end
 
   end
 
@@ -229,8 +265,8 @@ class MigrationService
   end
 
 
-  def migrate_company(source_entity)
-    # puts "[debug] #migrate_company id=#{@processing_entity_id}"
+  def migrate_company
+    puts "[debug] #migrate_company id=#{@current[:source_id]}"
 
     get_target_entity
     return if @current[:target_entity].nil?  # failed
@@ -384,7 +420,7 @@ class MigrationService
   end
 
   def format_address(val,line)
-    val.nil? || val.empty? ? nil : val.split("\n")[line-1]
+    val.nil? || val.blank? ? nil : val.split("\n")[line-1]
   end
 
   def format_travel_limit(val)
@@ -406,6 +442,7 @@ class MigrationService
     end
     val
   end
+
 
   def map_value_array(field,array)
     new_values = []
@@ -472,17 +509,16 @@ class MigrationService
   end
 
   def map_assoc(field, val)
-    return '' if val.nil? || val.empty?
-    cache_assoc(field, val) if @mapping_values[field][val].nil?
+    return '' if val.nil? || val.blank?
+    cache_assoc(field, val) if @mapping_assoc[field].nil? || @mapping_assoc[field][val].nil?
 
-    @mapping_assoc[field][val]
+    { id: @mapping_assoc[field][val] }
   end
 
   def cache_assoc(field, val)
-    # TODO fill this out:
-    # 1. Identify what fields map to what entity types for Bullhorn
-    # 2. Figure out how to search for entities of said type by "val"
-    # 3. Store @mapping_assoc[field][val] = entity_id
+    assoc_entities = @target.search(field,"customInt1:#{val}")
+    @mapping_assoc[field] ||= {}
+    @mapping_assoc[field][val] = assoc_entities.count == 1 ? assoc_entities[0].id : ''
   end
 
   # options should contain :search_attrib, :search_value, :value_attrib, :id, :description
