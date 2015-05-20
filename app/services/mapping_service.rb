@@ -58,7 +58,7 @@ class MappingService
   }
 
   ZCONAPP = {
-      'zconapp adt/prelude:' => 'adt/prelude',
+      'zconapp adt/prelude:' => 'adt-prelude',
       'zconapp amb:' => 'ambulatory',
       'zconapp anesthesia:' => 'anesthesia',
       'zconapp asap:' => 'asap',

@@ -157,17 +157,29 @@ class MigrationService
     data_custom = source_entity.respond_to?(:subject_datas) ? source_entity.subject_datas.map {|n| n.attributes} : []
 
     if @run.test_only? || @run.create_shell?
-      # dateAdded: format_timestamp(source_entity.created_at),
+      client_corp_obj = map_assoc(:clientCorporation, source_entity.company_id)
+      if client_corp_obj[:id].blank?
+        log_error("Prerequisite not available: Company=#{source_entity.company_id}")
+        return
+      end
+
+      work_email = array_search(data_contact['email_addresses'], options_work.merge({value_attrib: :address, description: 'work email'}))
+      if work_email.blank?
+        log_error('Required field not available: work email')
+        return
+      end
+
       target_update.merge!({
          firstName: source_entity.first_name,
          lastName: source_entity.last_name,
          name: source_entity.first_name + ' ' + source_entity.last_name,
          customInt1: @current[:source_id],
+         dateAdded: format_timestamp(source_entity.created_at),
          occupation: format_str(source_entity.title,50),
          mobile: format_phone(array_search(data_contact['phone_numbers'], options_work.merge({value_attrib: :number, search_value: 'Mobile'}))),
-         workPhone: format_phone(array_search(data_contact['phone_numbers'], options_work.merge({value_attrib: :number}))),
-         email: array_search(data_contact['email_addresses'], options_work.merge({value_attrib: :address})),
-         email2: array_search(data_contact['email_addresses'], options_home.merge({value_attrib: :address})),
+         phone: format_phone(array_search(data_contact['phone_numbers'], options_work.merge({value_attrib: :number}))),
+         email: work_email,
+         email2: array_search(data_contact['email_addresses'], options_home.merge({value_attrib: :address, description: 'personal email'})),
          address: {
              address1:  format_address( array_search(data_contact['addresses'], options_work.merge({value_attrib: :street})),1),
              address2:  format_address( array_search(data_contact['addresses'], options_work.merge({value_attrib: :street})),2),
@@ -176,7 +188,7 @@ class MigrationService
              zip:                       array_search(data_contact['addresses'], options_work.merge({value_attrib: :zip})),
              countryID: map_value(:countryID, array_search(data_contact['addresses'], options_work.merge({value_attrib: :country})), :address)
          },
-         clientCorporation: map_assoc(:clientCorporation, source_entity.company_id)
+         clientCorporation: client_corp_obj
       })
 
       update_target(target_update)
@@ -208,8 +220,8 @@ class MigrationService
           customText4: map_value(:customText4, array_search(data_custom, options_custom.merge({search_value: 'Rec: BlueTree Quality'}))),
           comments: format_comments(array_search(data_custom,options_custom.merge({search_value: 'Rec: BlueTree Quality Comments'}))),
           occupation: format_str(source_entity.title,50),
-          email: array_search(data_contact['email_addresses'], options_work.merge({value_attrib: :address})),
-          email2: array_search(data_contact['email_addresses'], options_home.merge({value_attrib: :address})),
+          email: array_search(data_contact['email_addresses'], options_work.merge({value_attrib: :address, description: 'work email'})),
+          email2: array_search(data_contact['email_addresses'], options_home.merge({value_attrib: :address, description: 'home email'})),
           mobile: format_phone(array_search(data_contact['phone_numbers'], options_work.merge({value_attrib: :number, search_value: 'Mobile'}))),
           workPhone: format_phone(array_search(data_contact['phone_numbers'], options_work.merge({value_attrib: :number}))),
           address: {
@@ -285,7 +297,7 @@ class MigrationService
 
         },
         companyURL:    array_search(data_contact['web_addresses'], options_work.merge({value_attrib: :url})),
-        customText2:   array_search(data_contact['email_addresses'], options_work.merge({value_attrib: :address})),
+        customText2:   array_search(data_contact['email_addresses'], options_work.merge({value_attrib: :address, description: 'work email'})),
         customText4:   map_value(:customText4, array_search(data_custom, options_custom.merge({search_value: 'AM: Category'}))),
         customText8:   map_value(:customText8, array_search(data_custom, options_custom.merge({search_value: 'AM: Referral Source Type'}))),
         customText9:   array_search(data_custom, options_custom.merge({search_value: 'AM: RFA Terms'})),
@@ -425,7 +437,7 @@ class MigrationService
   end
 
   def format_timestamp(val)
-    val.blank? ? '' : val.to_i
+    val.blank? ? '' : val.to_i*1000
   end
 
   def format_str(val,max_len = 0)
