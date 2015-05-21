@@ -41,11 +41,11 @@ class System < ActiveRecord::Base
   end
 
   def get(entity,entity_id)
-    return [] if entity.blank? || entity_id.blank?
+    return nil if entity.blank? || entity_id.blank?
     begin
       @system_type.get(entity,entity_id)
     rescue
-      [ServiceError.new('API get failed')]
+      ServiceError.new('API get failed')
     end
 
   end

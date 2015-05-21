@@ -1,0 +1,24 @@
+$(document).ready( function() {
+  if ($("body.systems_test").length) {
+    $('table#results').DataTable({
+      ordering: false,
+      dom: 'T<"clear">lfrtip',
+      tableTools: {
+        "sSwfPath": "<%= asset_path('copy_csv_xls_pdf.swf') %>",
+        "aButtons": [
+          {
+            "sExtends": "xls",
+            "sFileName": $('#entity option:selected').text() + " results - " + (new Date()).toISOString().split("T")[0] + " - info.csv",
+            "mColumns": [ 0, 1, 2, 3, 4 ]
+          },
+          {
+            "sExtends": "pdf",
+            "sFileName": $('#entity option:selected').text() + " results - " + (new Date()).toISOString().split("T")[0] + " - info.pdf",
+            "mColumns": [ 0, 1, 2, 3, 4 ]
+          }
+        ]
+      }
+    });
+
+  }
+})

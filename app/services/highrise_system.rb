@@ -40,7 +40,7 @@ class HighriseSystem < BaseSystem
   end
 
   def self.get(entity, entity_id)
-    puts "[debug] HighriseSystem#search: #{entity}, #{entity_id}"
+    puts "[debug] HighriseSystem#get: #{entity}, #{entity_id}"
     mod = entity.to_s.camelize
     result = Highrise.const_get(mod).find(entity_id)
     result

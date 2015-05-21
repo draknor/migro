@@ -1,16 +1,50 @@
-table
-  thead
-    tr
-      th ID
-      th Name
-      th Details
-  tbody
-    - @results.each do |result|
+
+- if @params[:entity] == 'deal'
+  - resp_users = {}
+  table#results
+    thead
       tr
-        td = result.id
-        td = result.name
-        td
-          a data-dropdown="result#{result.id}" aria-controls="result#{result.id}" aria-expanded="false" Details
-          div id="result#{result.id}" data-dropdown-content="" class="large f-dropdown content" aria-hidden="true" tabindex="-1"
-            pre
-              = JSON.pretty_generate(JSON.parse result.to_json)
+        th ID
+        th Name
+        th Company
+        th Owner
+        th Status
+        th Category
+        th Details
+    tbody
+      - @results.each do |result|
+        tr
+          td = result.id
+          td = result.name
+          td = result.party.name if result.respond_to?(:party) && result.party.respond_to?(:name)
+          td
+            - unless result.responsible_party_id.blank?
+              - user = resp_users[result.responsible_party_id]
+              - if user.nil?
+                - user = @system.get(:user, result.responsible_party_id)
+                - resp_users[result.responsible_party_id] = user unless user.nil?
+              = user.name unless user.nil?
+          td = result.status
+          td = result.category.name if result.respond_to?(:category)
+          td
+            a data-dropdown="result#{result.id}" aria-controls="result#{result.id}" aria-expanded="false" Details
+            div id="result#{result.id}" data-dropdown-content="" class="large f-dropdown content" aria-hidden="true" tabindex="-1"
+              pre
+                = JSON.pretty_generate(JSON.parse result.to_json)
+- else
+  table#results
+    thead
+      tr
+        th ID
+        th Name
+        th Details
+    tbody
+      - @results.each do |result|
+        tr
+          td = result.id
+          td = result.name
+          td
+            a data-dropdown="result#{result.id}" aria-controls="result#{result.id}" aria-expanded="false" Details
+            div id="result#{result.id}" data-dropdown-content="" class="large f-dropdown content" aria-hidden="true" tabindex="-1"
+              pre
+                = JSON.pretty_generate(JSON.parse result.to_json)
