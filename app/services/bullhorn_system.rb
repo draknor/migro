@@ -37,7 +37,13 @@ class BullhornSystem < BaseSystem
     if query == query.to_i.to_s  # assume query = entity_id if query is an integer
       return [get(entity,query)]
     end
-    resp = @client.send "search_#{entity.to_s.underscore.pluralize}", query: query
+    case entity.to_s.underscore.pluralize
+      when 'candidates'
+        resp = @client.send "search_#{entity.to_s.underscore.pluralize}", { query: query }
+      else
+        resp = @client.send "query_#{entity.to_s.underscore.pluralize}", { where: query }
+    end
+
     return resp.data unless resp.data.nil?
     []
   end
