@@ -413,6 +413,7 @@ class MigrationService
       end
 
       employment_type = map_value(:employmentType,source_entity.category.name)
+      priority = source_entity.name.match(/\[P:(\d+)\]/) ? source_entity.name.match(/\[P:(\d+)\]/)[1] : nil
 
       target_update.merge!({
              title: format_str(source_entity.name,100),
@@ -426,7 +427,8 @@ class MigrationService
              isOpen: (source_entity.status == 'pending'),
              status: map_value(:status,source_entity.category.name),
              startDate: format_timestamp(source_entity.created_at),
-             salaryUnit: source_entity.price_type
+             salaryUnit: map_value(:salaryUnit, source_entity.price_type),
+             priority: priority
          })
 
       case employment_type
@@ -443,9 +445,10 @@ class MigrationService
   end
 
   def get_target_entity
-    puts "[debug] #get_target_entity id=#{@current[:source_id]}"
+    puts "[debug] #get_target_entity id=#{@current[:source_id]} => #{@target_entity_type}"
     return nil if @current[:source_id].nil?
-    target_entities = search_assoc(@target_entity_type,'customInt1',@current[:source_id])
+    target_entities = search_assoc(@target_entity_type,'customInt1',@current[:source_id].to_i)
+    puts "[debug] #get_target_entity: results = #{target_entities.inspect}"
     if target_entities.class == ServiceError || target_entities[0].class == ServiceError
       log_error("Error retrieving target: #{target_entities[0].message}")
       return nil
@@ -569,12 +572,12 @@ class MigrationService
   end
 
   def format_textbox_html(val)
-    val.blank? ? nil : "<p>" + val.gsub("\n","</p><p>") + "</p>"
+    val.blank? ? nil : "<p>" + val.gsub("\n","<br>") + "</p>"
 
   end
 
   def format_timestamp(val)
-    puts "[debug] format_timestamp: val=#{val} (#{val.class})"
+    # puts "[debug] format_timestamp: val=#{val} (#{val.class})"
     return nil if val.blank?
     val = val.to_time if val.class == String
     val.to_i == 0 ? nil : val.to_i*1000

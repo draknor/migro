@@ -235,6 +235,14 @@ class MappingService
                                 '5' => "Interviewing Candidate",
                                 '6' => "Contracting"
                             }[value[0]] unless value.blank?
+                          when :salaryUnit
+                            {
+                                'hour' => "Per Hour",
+                                'day' => "Per Day",
+                                'month' => "Per Month",
+                                'year' => "Per Year",
+                                'fixed' => "Fixed Bid"
+                            }[value] unless value.blank?
                         end
                     end
       end
