@@ -5,6 +5,7 @@ class MigrationLog < ActiveRecord::Base
   before_save :truncate_message
 
   default_scope { order('created_at ASC') }
+  scope :recent, ->{ order('created_at DESC').limit(25) }
 
   def error_count
     self.id_list.nil? ? 0 : self.id_list.split("\n").count

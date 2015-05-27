@@ -40,7 +40,7 @@
           th Error Quantity
           th &nbsp;
       tbody
-        - @migration_run.migration_logs.error.each do |log|
+        - @migration_run.migration_logs.error.recent.each do |log|
           tr
             td = format_time(log.created_at)
             td = log.message
@@ -63,7 +63,7 @@
           th Message
           th &nbsp;
       tbody
-        - @migration_run.migration_logs.mapped.each do |log|
+        - @migration_run.migration_logs.mapped.recent.each do |log|
           tr
             td = format_time(log.created_at)
             td
