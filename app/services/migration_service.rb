@@ -268,8 +268,7 @@ class MigrationService
       vetted_notes << array_search(data_custom,options_custom.merge({search_value: 'Rec: Vetted by #3'}))
       comments = []
       comments << array_search(data_custom,options_custom.merge({search_value: 'Rec: Recruitment/ Placement notes'})).to_s
-      comments << array_search(data_custom,options_custom.merge({search_value: 'Rec: BlueTree Quality Comments'})).to_s
-
+      comments << array_search(data_custom,options_custom.merge({search_value: 'Rec: BlueTree Quality R/Y/G Comments'})).to_s
       owner = map_assoc(:corporate_user, :name, array_search(data_custom, options_custom.merge({search_value: 'Rec: Primary Contact / Advocate / Manager'})))
 
       # dateAdded: format_timestamp(source_entity.created_at),
@@ -302,7 +301,7 @@ class MigrationService
           referredByPerson: nil,
           customText1: map_value(:customText1, array_search(data_custom, options_custom.merge({search_value: 'Rec: Open to BlueTree Roles?'}))),
           customText3: map_value(:customText3, array_search(data_custom,options_custom.merge({search_value: 'Rec: Interested in Canopy?'}))),
-          customText4: map_value(:customText4, array_search(data_custom, options_custom.merge({search_value: 'Rec: BlueTree Quality'}))),
+          customText4: map_value(:customText4, array_search(data_custom, options_custom.merge({search_value: 'Rec: BlueTree Quality (Red/Yellow/Green)'}))),
           customText15: current_blueleaf,
           customText16: current_employment_model,
           customText17: employment_pref,
@@ -426,7 +425,7 @@ class MigrationService
              status: map_value(:status,source_entity.category.name),
              startDate: format_timestamp(source_entity.created_at),
              salaryUnit: map_value(:salaryUnit, source_entity.price_type),
-             priority: priority
+             type: priority
          })
 
       case employment_type

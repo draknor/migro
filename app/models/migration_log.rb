@@ -26,7 +26,7 @@ class MigrationLog < ActiveRecord::Base
   end
 
   def truncate_message
-    puts "[debug] truncate_message"
+    # puts "[debug] truncate_message"
     self.message = self.message.truncate(254) unless self.message.nil?
   end
 
