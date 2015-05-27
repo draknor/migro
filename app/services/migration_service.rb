@@ -312,8 +312,6 @@ class MigrationService
           customTextBlock5: format_textbox_array(vetted_notes)
       })
 
-      target_update.merge!({owner: owner}) unless owner[:id].nil?
-
       target_update.merge!({referredByPerson: referred_by_assoc}) unless referred_by_assoc.empty?
       mapped_apps = MappingService.map_highrise_apps(data_custom)
       target_update.merge!({customText7: map_value_array(:customText7,mapped_apps[:p])}) unless mapped_apps[:p].nil? || mapped_apps[:p].count==0
