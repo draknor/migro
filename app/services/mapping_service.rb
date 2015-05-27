@@ -137,7 +137,7 @@ class MappingService
                         end
 
                       when :client_contact
-                      when :company
+                      when :client_corporation
                         case field.to_sym
                           when :customText10
                             {"bluetree's" => 'bluetree sow',

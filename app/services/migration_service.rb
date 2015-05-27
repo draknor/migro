@@ -358,7 +358,7 @@ class MigrationService
             countryID: map_value(:countryID, array_search(data_contact['addresses'], options_work.merge({value_attrib: :country})), :address)
 
         },
-        companyURL:    array_search(data_contact['web_addresses'], options_work.merge({value_attrib: :url})),
+        companyURL:    format_str(array_search(data_contact['web_addresses'], options_work.merge({value_attrib: :url})),100),
         customText2:   array_search(data_contact['email_addresses'], options_work.merge({value_attrib: :address, description: 'work email'})),
         customText3:   array_search(data_custom, options_custom.merge({search_value: 'AM: Account Manager'})),
         customText4:   map_value(:customText4, array_search(data_custom, options_custom.merge({search_value: 'AM: Category'}))),
@@ -369,7 +369,7 @@ class MigrationService
         customText9:   array_search(data_custom, options_custom.merge({search_value: 'AM: RFA Terms'})),
         customText10:  map_value(:customText10, array_search(data_custom, options_custom.merge({search_value: "AM: SOW (BlueTree's or Client's)"}))),
         customText11:  map_value(:customText11, array_search(data_custom, options_custom.merge({search_value: "HR: HCO requires purchase order ID?"}))),
-        customText12:  array_search(data_contact['web_addresses'], options_work.merge({value_attrib: :url, search_value: 'Other'})),
+        customText12:  format_str(array_search(data_contact['web_addresses'], options_work.merge({value_attrib: :url, search_value: 'Other'})),100)
       })
 
     end
