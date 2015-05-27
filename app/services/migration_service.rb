@@ -165,6 +165,7 @@ class MigrationService
 
       contact_name = map_assoc(:client_corporation, 'customInt1', source_entity.company_id, :customText3)[:customText3]
       contact_obj = map_assoc(:corporate_user, 'name', contact_name)
+      contact_obj = nil if contact_obj.empty?
 
 
       # Email hierarchy: Use 'work', 'home', 'other' - as found in Highrise, up to 3
@@ -310,6 +311,8 @@ class MigrationService
           customTextBlock4: format_textbox(current_employment_txt),
           customTextBlock5: format_textbox_array(vetted_notes)
       })
+
+      target_update.merge!({owner: owner}) unless owner[:id].nil?
 
       target_update.merge!({referredByPerson: referred_by_assoc}) unless referred_by_assoc.empty?
       mapped_apps = MappingService.map_highrise_apps(data_custom)
