@@ -157,14 +157,14 @@ class MigrationService
     data_custom = source_entity.respond_to?(:subject_datas) ? source_entity.subject_datas.map {|n| n.attributes} : []
 
     if @run.test_only? || @run.create_shell?
-      client_corp_obj = map_assoc(:clientCorporation, 'customInt1', source_entity.company_id)
+      client_corp_obj = map_assoc(:client_corporation, 'customInt1', source_entity.company_id)
       if client_corp_obj[:id].blank?
         log_error("Prerequisite not available: Company=#{source_entity.company_id}")
         return
       end
 
-      contact_name = map_assoc(:clientCorporation, 'customInt1', source_entity.company_id, :customText3)[:customText3]
-      contact_obj = map_assoc(:corporateUser, 'name', quote(contact_name))
+      contact_name = map_assoc(:client_corporation, 'customInt1', source_entity.company_id, :customText3)[:customText3]
+      contact_obj = map_assoc(:corporate_user, 'name', contact_name)
 
 
       # Email hierarchy: Use 'work', 'home', 'other' - as found in Highrise, up to 3
@@ -199,7 +199,9 @@ class MigrationService
              countryID: map_value(:countryID, array_search(data_contact['addresses'], options_work.merge({value_attrib: :country})), :address)
          },
          clientCorporation: client_corp_obj,
-         owner: contact_obj
+         owner: contact_obj,
+         customText1: source_entity.linkedin_url,
+         customTextBlock1: format_textbox(source_entity.background)
       })
 
       update_target(target_update)
@@ -215,25 +217,69 @@ class MigrationService
     source_entity = @current[:source_entity]
     target_update = {}
     target_update_assoc = {}
-    mapped_apps = {}
-    mapped_roles = {}
     data_contact = source_entity.contact_data.attributes
     data_custom = source_entity.respond_to?(:subject_datas) ? source_entity.subject_datas.map {|n| n.attributes} : []
 
     if @run.test_only? || @run.create_shell?
+      emails = array_search_multi(data_contact['email_addresses'], options_work.merge({value_attrib: :address, description: 'work email'}))
+      emails = emails + array_search_multi(data_contact['email_addresses'], options_home.merge({value_attrib: :address, description: 'home email'}))
+      emails = emails + array_search_multi(data_contact['email_addresses'], options_home.merge({value_attrib: :address, search_value: 'Other', description: 'other email'}))
+
+      referred_by_name = array_search(data_custom, options_custom.merge({search_value: 'Rec: Referred By'}))
+      referred_by_assoc = {}
+      unless referred_by_name.blank?
+        if referred_by_assoc[:id].blank?
+          referred_by_assoc = map_assoc(:corporate_user, 'name', referred_by_name)
+          referred_by_assoc[:_subType] = 'CorporateUser' unless referred_by_assoc[:id].blank?
+        end
+
+        if referred_by_assoc[:id].blank?
+          referred_by_assoc = map_assoc(:candidate, 'name', referred_by_name)
+          referred_by_assoc[:_subType] = 'Candidate' unless referred_by_assoc[:id].blank?
+        end
+
+        if referred_by_assoc[:id].blank?
+          referred_by_assoc = map_assoc(:client_contact, 'name', referred_by_name)
+          referred_by_assoc[:_subType] = 'ClientContact' unless referred_by_assoc[:id].blank?
+        end
+      end
+      referred_by_name = nil unless referred_by_assoc[:id].blank?
+
+      current_blueleaf = map_value(:customText15, array_search(data_custom,options_custom.merge({search_value: 'HR: Current BlueLeaf?'})))
+      blueleaf_employment = array_search(data_custom,options_custom.merge({search_value: 'HR: Employment Model (W2/1099 (#%/#%))'}))
+      current_employment_mapped = map_value(:customText16, blueleaf_employment)
+
+      if current_blueleaf.blank?
+        current_employment_model = nil
+        current_employment_txt = nil
+        employment_pref = blueleaf_employment
+      else
+        current_employment_model = current_employment_mapped
+        current_employment_txt = current_employment_mapped.blank? ? blueleaf_employment : nil
+        employment_pref = nil
+      end
+
+      vetted_notes = []
+      vetted_notes << array_search(data_custom,options_custom.merge({search_value: 'Rec: Vetted by #1'}))
+      vetted_notes << array_search(data_custom,options_custom.merge({search_value: 'Rec: Vetted by #2'}))
+      vetted_notes << array_search(data_custom,options_custom.merge({search_value: 'Rec: Vetted by #3'}))
+      comments = []
+      comments << array_search(data_custom,options_custom.merge({search_value: 'Rec: Recruitment/ Placement notes'})).to_s
+      comments << array_search(data_custom,options_custom.merge({search_value: 'Rec: BlueTree Quality Comments'})).to_s
+
       # dateAdded: format_timestamp(source_entity.created_at),
       target_update.merge!({
           firstName: source_entity.first_name,
           lastName: source_entity.last_name,
           name: source_entity.first_name + ' ' + source_entity.last_name,
           customInt1: @current[:source_id],
-          customText1: map_value(:customText1, array_search(data_custom, options_custom.merge({search_value: 'Rec: Open to BlueTree Roles?'}))),
-          customText4: map_value(:customText4, array_search(data_custom, options_custom.merge({search_value: 'Rec: BlueTree Quality'}))),
-          comments: format_comments(array_search(data_custom,options_custom.merge({search_value: 'Rec: BlueTree Quality Comments'}))),
           companyName: source_entity.company_name,
+          companyURL: source_entity.linkedin_url,
           occupation: format_str(source_entity.title,50),
-          email: array_search(data_contact['email_addresses'], options_work.merge({value_attrib: :address, description: 'work email'})),
-          email2: array_search(data_contact['email_addresses'], options_home.merge({value_attrib: :address, description: 'home email'})),
+          status: 'HR Migration',
+          email: emails[0],
+          email2: emails.count > 1 ? emails[1] : '',
+          email3: emails.count > 2 ? emails[2] : '',
           mobile: format_phone(array_search(data_contact['phone_numbers'], options_work.merge({value_attrib: :number, search_value: 'Mobile'}))),
           workPhone: format_phone(array_search(data_contact['phone_numbers'], options_work.merge({value_attrib: :number}))),
           address: {
@@ -245,13 +291,24 @@ class MigrationService
               countryID: map_value(:countryID, array_search(data_contact['addresses'], options_home.merge({value_attrib: :country})), :address)
           },
           employmentPreference: map_value(:employmentPreference, array_search(data_custom,options_custom.merge({search_value: 'Rec: FTE preferences'}))),
-          dateAvailable: array_search(data_custom,options_custom.merge({search_value: 'Rec: Available After'})),
+          dateAvailable: format_timestamp(array_search(data_custom,options_custom.merge({search_value: 'Rec: Available after:'}))),
           travelLimit: format_travel_limit(array_search(data_custom,options_custom.merge({search_value: 'Rec: Max Travel %'}))),
+          owner: map_assoc(:corporate_user, :name, array_search(data_custom, options_custom.merge({search_value: 'Rec: Primary Contact / Advocate / Manager'}))),
+          referredBy: referred_by_name,
+          referredByPerson: nil,
+          customText1: map_value(:customText1, array_search(data_custom, options_custom.merge({search_value: 'Rec: Open to BlueTree Roles?'}))),
           customText3: map_value(:customText3, array_search(data_custom,options_custom.merge({search_value: 'Rec: Interested in Canopy?'}))),
-          customTextBlock2: array_search(data_custom,options_custom.merge({search_value: 'Rec: Recruitment/ Placement notes'})),
-          owner: map_assoc(:corporateUser, :name, quote(array_search(data_custom, options_custom.merge({search_value: 'HR: Consultant Advocate / Internal Manager'})))),
-          referredBy: array_search(data_custom, options_custom.merge({search_value: 'Rec: Referred by'}))
+          customText4: map_value(:customText4, array_search(data_custom, options_custom.merge({search_value: 'Rec: BlueTree Quality'}))),
+          customText15: current_blueleaf,
+          customText16: current_employment_model,
+          customText17: employment_pref,
+          customTextBlock2: format_textbox(source_entity.background),
+          customTextBlock3: format_textbox_array(comments),
+          customTextBlock4: format_textbox(current_employment_txt),
+          customTextBlock5: format_textbox_array(vetted_notes)
       })
+
+      target_update.merge!({referredByPerson: referred_by_assoc}) unless referred_by_assoc.empty?
       mapped_apps = MappingService.map_highrise_apps(data_custom)
       target_update.merge!({customText7: map_value_array(:customText7,mapped_apps[:p])}) unless mapped_apps[:p].nil? || mapped_apps[:p].count==0
       target_update.merge!({customText6: map_value_array(:customText6,mapped_apps[:t])}) unless mapped_apps[:t].nil? || mapped_apps[:t].count==0
@@ -325,7 +382,7 @@ class MigrationService
   def get_target_entity
     puts "[debug] #get_target_entity id=#{@current[:source_id]}"
     return nil if @current[:source_id].nil?
-    target_entities = @target.search(@target_entity_type,"customInt1=#{@current[:source_id]}")
+    target_entities = search_assoc(@target_entity_type,'customInt1',@current[:source_id])
     if target_entities[0].class == ServiceError
       log_error("Error retrieving target: #{target_entities[0].message}")
       return nil
@@ -440,8 +497,19 @@ class MigrationService
     val.blank? ? '(no comments migrated)' : val
   end
 
+  def format_textbox_array(val_array)
+    val_array.count == 0 ? nil : val_array.map {|n| format_textbox(n)}.join("\r\n")
+  end
+
+  def format_textbox(val)
+    val.blank? ? nil : val.gsub("\n","\r\n")
+  end
+
   def format_timestamp(val)
-    val.blank? ? '' : val.to_i*1000
+    puts "[debug] format_timestamp: val=#{val} (#{val.class})"
+    return nil if val.blank?
+    val = val.to_time if val.class == String
+    val.to_i == 0 ? nil : val.to_i*1000
   end
 
   def format_str(val,max_len = 0)
@@ -526,11 +594,23 @@ class MigrationService
   end
 
   def cache_assoc(entity, field, val)
-    # note this doesn't work for candidates -- inconsistency in the API
-    assoc_entities = @target.search(entity,"#{field.to_s}=#{val}")
+    assoc_entities = search_assoc(entity, field, val)
     @mapping_assoc[entity] ||= {}
     @mapping_assoc[entity][field] ||= {}
     @mapping_assoc[entity][field][val] = assoc_entities.count == 1 ? assoc_entities[0] : Hashie::Mash.new
+  end
+
+  def search_assoc(entity,field,val)
+    return nil if val.blank?
+    if entity == :candidate
+      qval = val.class == String ? double_quote(val) : val
+      query = "#{field.to_s}:#{qval}"
+    else
+      qval = val.class == String ? single_quote(val) : val
+      query = "#{field.to_s}=#{qval}"
+    end
+    @target.search(entity,query)
+
   end
 
   # options should contain :search_attrib, :search_value, :value_attrib, :id, :description
@@ -566,9 +646,12 @@ class MigrationService
     value
   end
 
-  def quote(val)
+  def single_quote(val)
     "'" + val + "'"
   end
 
+  def double_quote(val)
+    '"' + val + '"'
+  end
 
 end

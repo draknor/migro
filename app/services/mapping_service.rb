@@ -58,11 +58,11 @@ class MappingService
   }
 
   ZCONAPP = {
-      'zconapp adt/prelude:' => 'adt-prelude',
+      'zconapp adt/prelude:' => 'grand central adt',
       'zconapp amb:' => 'ambulatory',
       'zconapp anesthesia:' => 'anesthesia',
-      'zconapp asap:' => 'asap',
-      'zconapp beacon:' => 'beacon',
+      'zconapp asap:' => 'asap ed',
+      'zconapp beacon:' => 'beacon oncology',
       'zconapp beaker' => 'beaker cp',
       'zconapp cadence:' => 'cadence',
       'zconapp claims:' => 'claims',
@@ -72,25 +72,25 @@ class MappingService
       'zconapp cogito:' => 'cogito',
       'zconapp comm connect ip:' => 'community connect (ip)',
       'zconapp comm connect op:' => 'community connect (op)',
-      'zconapp cupid:' => 'cupid',
+      'zconapp cupid:' => 'cupid cvis',
       'zconapp data courier:' => 'data courier',
-      'zconapp hb:' => 'hb',
+      'zconapp hb:' => 'hospital billing',
       'zconapp him:' => 'him',
       'zconapp home health:' => 'home health',
-      'zconapp interfaces:' => 'interfaces',
+      'zconapp interfaces:' => 'bridges interfaces',
       'zconapp kaleidoscope:' => 'kaleidoscope',
       'zconapp mychart:' => 'mychart',
-      'zconapp optime:' => 'optime',
+      'zconapp optime:' => 'optime or',
       'zconapp order transmittal:' => 'order transmittal',
       'zconapp orders:' => 'orders',
-      'zconapp pb:' => 'pb',
+      'zconapp pb:' => 'professional billing',
       'zconapp radiant:' => 'radiant',
       'zconapp security:' => 'security',
       'zconapp server systems:' => 'server systems',
       'zconapp stork:' => 'stork',
       'zconapp willow amb:' => 'willow amb',
       'zconapp willow ip:' => 'willow ip',
-      'zconapp transplant/phoenix:' => 'transplant',
+      'zconapp transplant/phoenix:' => 'phoenix transplant',
       'zconapp tapestry:' => 'tapestry'
   }
 
@@ -114,6 +114,28 @@ class MappingService
       if new_value.nil?
         new_value = case entity.to_sym
                       when :candidate
+                        case field.to_sym
+                          when :customText15
+                            {
+                              "consultant" => "Full-Time Hourly Consultant",
+                              "consultant (pt)" => "Part-Time Hourly Consultant",
+                              "former internal" => "Former Internal",
+                              "inactive internal" => "Former Internal",
+                              "inactive consultant" => "Former Consultant",
+                              "internal" => "Active Internal",
+                              "internal consultant" => "Salaried Consultant",
+                              "no" => ''
+                            }[value.downcase] unless value.blank?
+                          when :customText16
+                            {
+                              "w2 (30/20)" => "w2 - 30/20",
+                              "w2 (33/23)" => "w2 - 33/23",
+                              "1099 (33/23)" => "1099 - 33/23",
+                              "1099 (30/20)" => "1099 - 30/20",
+                              "c2c" => "c2c",
+                            }[value.downcase] unless value.blank?
+                        end
+
                       when :client_contact
                       when :company
                         case field.to_sym
