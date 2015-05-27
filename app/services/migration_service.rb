@@ -412,9 +412,7 @@ class MigrationService
         return
       end
 
-
-
-
+      employment_type = map_value(:employmentType,source_entity.category.name)
 
       target_update.merge!({
              title: format_str(source_entity.name,100),
@@ -422,21 +420,26 @@ class MigrationService
              clientCorporation: client_corp_obj,
              clientContact: client_contact_obj,
              description: format_textbox_html(source_entity.background),
-             employmentType: map_value(:employmentType,source_entity.category.name),
+             employmentType: employment_type,
              owner: owner_obj,
              clientBillRate: source_entity.price_type == 'hour' ? source_entity.price : nil,
              isOpen: (source_entity.status == 'pending'),
              status: map_value(:status,source_entity.category.name),
-             startDate: format_timestamp(source_entity.created_at)
-
-
+             startDate: format_timestamp(source_entity.created_at),
+             salaryUnit: source_entity.price_type
          })
 
+      case employment_type
+        when 'Contract', 'Contract (C2C)'
+          target_update.merge!({clientBillRate: source_entity.price})
+        when 'Permanent - FTE'
+          target_update.merge!({salary: source_entity.price})
+        else
+          target_update.merge!({payrate: source_entity.price})
+      end
+
+      update_target(target_update)
     end
-
-    update_target(target_update)
-
-
   end
 
   def get_target_entity
