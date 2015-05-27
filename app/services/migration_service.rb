@@ -267,8 +267,9 @@ class MigrationService
       vetted_notes << array_search(data_custom,options_custom.merge({search_value: 'Rec: Vetted by #2'}))
       vetted_notes << array_search(data_custom,options_custom.merge({search_value: 'Rec: Vetted by #3'}))
       comments = []
-      comments << array_search(data_custom,options_custom.merge({search_value: 'Rec: Recruitment/ Placement notes'})).to_s
-      comments << array_search(data_custom,options_custom.merge({search_value: 'Rec: BlueTree Quality R/Y/G Comments'})).to_s
+      comments << "HR Rec/Placement Note: " + array_search(data_custom,options_custom.merge({search_value: 'Rec: Recruitment/Placement Notes'})).to_s
+      comments << ''
+      comments << "HR Quality Comment: " + array_search(data_custom,options_custom.merge({search_value: 'Rec: BlueTree Quality R/Y/G Comments'})).to_s
       owner = map_assoc(:corporate_user, :name, array_search(data_custom, options_custom.merge({search_value: 'Rec: Primary Contact / Advocate / Manager'})))
 
       # dateAdded: format_timestamp(source_entity.created_at),
