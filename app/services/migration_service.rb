@@ -321,7 +321,7 @@ class MigrationService
 
       mapped_roles = MappingService.map_highrise_roles(data_custom)
       target_update.merge!({customText8:  map_value_array(:customText8, mapped_roles[:p])}) unless mapped_roles[:p].nil? || mapped_roles[:p].count==0
-      target_update.merge!({customText13: map_value_array(:customText13,mapped_roles[:p])}) unless mapped_roles[:s].nil? || mapped_roles[:s].count==0
+      target_update.merge!({customText13: map_value_array(:customText13,mapped_roles[:s])}) unless mapped_roles[:s].nil? || mapped_roles[:s].count==0
       q_roles = mapped_roles[:q].nil? ? [] : mapped_roles[:q]
       e_roles = mapped_roles[:e].nil? ? [] : mapped_roles[:e]
       target_update_assoc.merge!({specialties: map_value_array(:specialties,q_roles + e_roles)}) unless (q_roles + e_roles).count==0
@@ -526,6 +526,7 @@ class MigrationService
 
 
   def map_value_array(field,array)
+    return nil if array.nil?
     new_values = []
     array.each do |val|
       new_val = map_value(field,val)

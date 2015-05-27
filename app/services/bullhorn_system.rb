@@ -22,6 +22,9 @@ class BullhornSystem < BaseSystem
 
   ]
 
+  @cache_meta = {}
+  @cache_option = {}
+
   # really just for debugging purposes
   def self.client_obj
     @client
@@ -63,6 +66,8 @@ class BullhornSystem < BaseSystem
   end
 
   def self.get_meta(entity)
+    return @cache_meta[entity] unless @cache_meta[entity].nil?
+
     resp = @client.send entity.to_s, 1,{meta: 'full'}
     if resp.meta.nil?  # record with ID 1 must not exist - find another record
       find_resp = @client.send "query_#{entity.to_s.pluralize}",{count: 1, where: 'id IS NOT NULL',fields:'id'}
@@ -73,11 +78,13 @@ class BullhornSystem < BaseSystem
       find_resp = @client.send "search_#{entity.to_s.pluralize}", {query: 'id:[0 TO 9]', count:1, fields: 'id'}
       resp = @client.send entity.to_s, find_resp.data[0][:id], {meta: 'full'} unless find_resp.data.nil? || find_resp.data.count == 0
     end
-
-    return resp.meta unless resp.meta.nil?
+    @cache_meta[entity] = resp.meta
+    resp.meta
   end
 
   def self.get_option(option_type, value='*')
+    return @cache_option[option_type] unless @cache_option[option_type].nil? || value != '*'
+
     start = 0
     count = 300
     data = []
@@ -87,7 +94,9 @@ class BullhornSystem < BaseSystem
       data.concat(resp.data) unless resp.data.nil?
       start = start+count
     end until resp.data.nil? || resp.data.empty?
+    @cache_option[option_type] = data if value == '*'
     data
+
   end
 
   def self.create(entity,attributes)
