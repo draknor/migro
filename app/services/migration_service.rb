@@ -165,8 +165,6 @@ class MigrationService
 
       contact_name = map_assoc(:client_corporation, 'customInt1', source_entity.company_id, :customText3)[:customText3]
       contact_obj = map_assoc(:corporate_user, 'name', contact_name)
-      contact_obj = nil if contact_obj.empty?
-
 
       # Email hierarchy: Use 'work', 'home', 'other' - as found in Highrise, up to 3
 
@@ -200,10 +198,10 @@ class MigrationService
              countryID: map_value(:countryID, array_search(data_contact['addresses'], options_work.merge({value_attrib: :country})), :address)
          },
          clientCorporation: client_corp_obj,
-         owner: contact_obj,
          customText1: source_entity.linkedin_url,
          customTextBlock1: format_textbox(source_entity.background)
       })
+      target_update.merge!({owner: contact_obj}) unless contact_obj.empty?
 
       update_target(target_update)
     end
@@ -269,7 +267,6 @@ class MigrationService
       comments << array_search(data_custom,options_custom.merge({search_value: 'Rec: BlueTree Quality Comments'})).to_s
 
       owner = map_assoc(:corporate_user, :name, array_search(data_custom, options_custom.merge({search_value: 'Rec: Primary Contact / Advocate / Manager'})))
-      owner = nil if owner.empty?
 
       # dateAdded: format_timestamp(source_entity.created_at),
       target_update.merge!({
@@ -297,7 +294,6 @@ class MigrationService
           employmentPreference: map_value(:employmentPreference, array_search(data_custom,options_custom.merge({search_value: 'Rec: FTE preferences'}))),
           dateAvailable: format_timestamp(array_search(data_custom,options_custom.merge({search_value: 'Rec: Available after:'}))),
           travelLimit: format_travel_limit(array_search(data_custom,options_custom.merge({search_value: 'Rec: Max Travel %'}))),
-          owner: owner,
           referredBy: referred_by_name,
           referredByPerson: nil,
           customText1: map_value(:customText1, array_search(data_custom, options_custom.merge({search_value: 'Rec: Open to BlueTree Roles?'}))),
@@ -312,6 +308,7 @@ class MigrationService
           customTextBlock5: format_textbox_array(vetted_notes)
       })
 
+      target_update.merge!({owner: owner}) unless owner.empty?
       target_update.merge!({referredByPerson: referred_by_assoc}) unless referred_by_assoc.empty?
       mapped_apps = MappingService.map_highrise_apps(data_custom)
       target_update.merge!({customText7: map_value_array(:customText7,mapped_apps[:p])}) unless mapped_apps[:p].nil? || mapped_apps[:p].count==0
@@ -595,7 +592,8 @@ class MigrationService
     return {} if val.nil? || val.blank?
     cache_assoc(entity, field, val) if @mapping_assoc[entity].nil? || @mapping_assoc[entity][field].nil? || @mapping_assoc[entity][field][val].nil?
 
-    { attrib => (@mapping_assoc[entity][field][val])[attrib] }
+    return {} if @mapping_assoc[entity][field][val][attrib].blank?
+    { attrib => @mapping_assoc[entity][field][val][attrib] }
   end
 
   def cache_assoc(entity, field, val)
