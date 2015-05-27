@@ -62,7 +62,11 @@ class BullhornSystem < BaseSystem
     return resp.data unless resp.data.nil?
   end
 
-  def self.query(entity, where)
+  def self.query(entity, query)
+    resp = @client.send "query_#{entity.to_s.underscore.pluralize}", { where: query }
+
+    return resp.data unless resp.data.nil?
+    []
   end
 
   def self.get_meta(entity)

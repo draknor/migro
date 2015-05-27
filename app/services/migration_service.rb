@@ -15,11 +15,13 @@ class MigrationService
     @ready = false
     @mapping_values = {}
     @mapping_assoc = {}
+    @source_maps = {}
     @valid_entity_maps = {
       :highrise => {
         :bullhorn => {
             :company => :client_corporation,
-            :person => [:candidate, :client_contact]
+            :person => [:candidate, :client_contact],
+            :deal => :job_order
         }
       }
     }
@@ -72,6 +74,8 @@ class MigrationService
       else
         @current[:source_entity] = entity
         self.send "migrate_#{@source_entity_type}"
+        @run.increment_record!
+
       end
     end
     @current = {}
@@ -87,6 +91,8 @@ class MigrationService
         entities.each do |entity|
           @current = { source_id: entity.id, source_entity: entity }
           self.send "migrate_#{@source_entity_type}"
+          @run.increment_record!
+
         end
         @current = {}
       end while entities.count > 0
@@ -142,8 +148,6 @@ class MigrationService
     else
       log_error("'Migration Flag - Contact vs Candidate' value not recognized: '#{target_type}'")
     end
-    @run.increment_record!
-
   end
 
   def migrate_person_to_contact
@@ -332,7 +336,6 @@ class MigrationService
     update_target_assoc(target_update_assoc) unless target_update_assoc.empty?
   end
 
-
   def migrate_company
     puts "[debug] #migrate_company id=#{@current[:source_id]}"
 
@@ -376,14 +379,74 @@ class MigrationService
     end
 
     update_target(target_update)
-    @run.increment_record!
+  end
 
+  def migrate_deal
+    puts "[debug] #migrate_deal id=#{@current[:source_id]}"
+
+    get_target_entity
+    return if @current[:target_entity].nil?  # failed
+    source_entity = @current[:source_entity]
+
+    target_update = {}
+
+    if @run.test_only? || @run.create_shell?
+      client_corp_obj = map_assoc(:client_corporation, 'customInt1', source_entity.party_id)
+      if client_corp_obj[:id].blank?
+        log_error("Prerequisite not available: Company=#{source_entity.party_id}")
+        return
+      end
+
+      client_contact_obj = map_assoc(:client_contact, 'customInt1', MappingService.get_hr_deal_owner(@current[:source_id]))
+      if client_contact_obj[:id].blank?
+        log_error("Prerequisite not available: Contact=#{MappingService.get_hr_deal_owner(@current[:source_id])}")
+        return
+      end
+
+      owner_name = get_source_name(:user, source_entity.responsible_party_id)
+      owner_obj = map_assoc(:corporate_user, 'name', owner_name)
+      if owner_obj[:id].blank?
+        log_error("Prerequisite not available: Sales Owner=#{owner_name} (#{source_entity.responsible_party_id})")
+        return
+      end
+
+      employment_type = map_value(:employmentType,source_entity.category.name)
+      priority = source_entity.name.match(/\[P:(\d+)\]/) ? source_entity.name.match(/\[P:(\d+)\]/)[1] : nil
+
+      target_update.merge!({
+             title: format_str(source_entity.name,100),
+             customInt1: @current[:source_id],
+             clientCorporation: client_corp_obj,
+             clientContact: client_contact_obj,
+             description: format_textbox_html(source_entity.background),
+             employmentType: employment_type,
+             owner: owner_obj,
+             clientBillRate: source_entity.price_type == 'hour' ? source_entity.price : nil,
+             isOpen: (source_entity.status == 'pending'),
+             status: map_value(:status,source_entity.category.name),
+             startDate: format_timestamp(source_entity.created_at),
+             salaryUnit: map_value(:salaryUnit, source_entity.price_type),
+             priority: priority
+         })
+
+      case employment_type
+        when 'Contract', 'Contract (C2C)'
+          target_update.merge!({clientBillRate: source_entity.price})
+        when 'Permanent - FTE'
+          target_update.merge!({salary: source_entity.price})
+        else
+          target_update.merge!({payrate: source_entity.price})
+      end
+
+      update_target(target_update)
+    end
   end
 
   def get_target_entity
-    puts "[debug] #get_target_entity id=#{@current[:source_id]}"
+    puts "[debug] #get_target_entity id=#{@current[:source_id]} => #{@target_entity_type}"
     return nil if @current[:source_id].nil?
-    target_entities = search_assoc(@target_entity_type,'customInt1',@current[:source_id])
+    target_entities = search_assoc(@target_entity_type,'customInt1',@current[:source_id].to_i)
+    puts "[debug] #get_target_entity: results = #{target_entities.inspect}"
     if target_entities.class == ServiceError || target_entities[0].class == ServiceError
       log_error("Error retrieving target: #{target_entities[0].message}")
       return nil
@@ -506,8 +569,13 @@ class MigrationService
     val.blank? ? nil : val.gsub("\n","\r\n")
   end
 
+  def format_textbox_html(val)
+    val.blank? ? nil : "<p>" + val.gsub("\n","<br>") + "</p>"
+
+  end
+
   def format_timestamp(val)
-    puts "[debug] format_timestamp: val=#{val} (#{val.class})"
+    # puts "[debug] format_timestamp: val=#{val} (#{val.class})"
     return nil if val.blank?
     val = val.to_time if val.class == String
     val.to_i == 0 ? nil : val.to_i*1000
@@ -619,7 +687,22 @@ class MigrationService
       query = "#{field.to_s}=#{qval}"
     end
     @target.search(entity,query)
+  end
 
+  def get_source_name(entity,id)
+    return nil if id.blank?
+    if @source_maps[entity].blank? || @source_maps[entity][id].blank?
+      cache_source(entity,id)
+    end
+
+    @source_maps[entity][id].nil? ? '' : @source_maps[entity][id].name
+  end
+
+  def cache_source(entity,id)
+    return nil if id.blank?
+    val = @source.get(entity,id)
+    @source_maps[entity] ||= {}
+    @source_maps[entity][id] = val
   end
 
   # options should contain :search_attrib, :search_value, :value_attrib, :id, :description

@@ -46,7 +46,7 @@ gem 'rails-html-sanitizer', '~> 1.0'
 # gem 'capistrano-rails', group: :development
 
 gem 'highrise', git: 'https://github.com/draknor/highrise.git', :branch => 'add_search_term'
-gem 'bullhorn-rest', git: 'https://github.com/draknor/bullhorn-rest.git', :branch => 'add_creating_associations'
+gem 'bullhorn-rest', git: 'https://github.com/draknor/bullhorn-rest.git', :branch => 'fix_query_for_job_order'
 gem 'hashie'
 gem 'awesome_print'
 gem 'delayed_job_active_record'
