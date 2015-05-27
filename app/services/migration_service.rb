@@ -405,21 +405,31 @@ class MigrationService
         return
       end
 
-      owner_name = cache_source(:user, source_entity.responsible_party_id)
+      owner_name = get_source_name(:user, source_entity.responsible_party_id)
       owner_obj = map_assoc(:corporate_user, 'name', owner_name)
       if owner_obj[:id].blank?
         log_error("Prerequisite not available: Sales Owner=#{owner_name} (#{source_entity.responsible_party_id})")
         return
       end
 
+
+
+
+
       target_update.merge!({
              title: format_str(source_entity.name,100),
              customInt1: @current[:source_id],
              clientCorporation: client_corp_obj,
              clientContact: client_contact_obj,
-             description: format_textbox(source_entity.background),
+             description: format_textbox_html(source_entity.background),
              employmentType: map_value(:employmentType,source_entity.category.name),
-             owner: owner_obj
+             owner: owner_obj,
+             clientBillRate: source_entity.price_type == 'hour' ? source_entity.price : nil,
+             isOpen: (source_entity.status == 'pending'),
+             status: map_value(:status,source_entity.category.name),
+             startDate: format_timestamp(source_entity.created_at)
+
+
          })
 
     end
@@ -555,6 +565,11 @@ class MigrationService
     val.blank? ? nil : val.gsub("\n","\r\n")
   end
 
+  def format_textbox_html(val)
+    val.blank? ? nil : "<p>" + val.gsub("\n","</p><p>") + "</p>"
+
+  end
+
   def format_timestamp(val)
     puts "[debug] format_timestamp: val=#{val} (#{val.class})"
     return nil if val.blank?
@@ -668,17 +683,21 @@ class MigrationService
     @target.search(entity,query)
   end
 
-  def cache_source(entity,id)
+  def get_source_name(entity,id)
     return nil if id.blank?
     if @source_maps[entity].blank? || @source_maps[entity][id].blank?
-      val = @source.get(entity,id)
-      @source_maps[entity] ||= {}
-      @source_maps[entity][id] = val
+      cache_source(entity,id)
     end
 
-    @source_maps[entity][id]
+    @source_maps[entity][id].nil? ? '' : @source_maps[entity][id].name
   end
 
+  def cache_source(entity,id)
+    return nil if id.blank?
+    val = @source.get(entity,id)
+    @source_maps[entity] ||= {}
+    @source_maps[entity][id] = val
+  end
 
   # options should contain :search_attrib, :search_value, :value_attrib, :id, :description
   def array_search(array,options = {})

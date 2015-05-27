@@ -216,15 +216,25 @@ class MappingService
                       when :job_order
                         case field.to_sym
                           when :employmentType
-                            if val[0] == '0' || val[0] == '1'
+                            if value[0] == '0' || value[0] == '1'
                               'Other'
-                            elsif val.include?("(FTE)")
+                            elsif value.include?("(FTE)")
                               'Permanent - FTE'
-                            elsif val.include?("(C2C)")
+                            elsif value.include?("(C2C)")
                               'Contract (C2C)'
                             else
                               'Contract'
                             end
+                          when :status
+                            {
+                                '0' => "Drafting Proposal",
+                                '1' => "Proposal Submitted",
+                                '2' => "Prospect",
+                                '3' => "Confirmed",
+                                '4' => "Candidate Submitted",
+                                '5' => "Interviewing Candidate",
+                                '6' => "Contracting"
+                            }[value[0]] unless value.blank?
                         end
                     end
       end
@@ -289,7 +299,7 @@ class MappingService
   end
 
   def self.get_hr_deal_owner(deal_id)
-    DEAL_CONTACT_OWNER[deal_id]
+    DEAL_CONTACT_OWNER[deal_id.to_i]
   end
 
 end

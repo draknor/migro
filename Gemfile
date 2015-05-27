@@ -54,6 +54,7 @@ gem 'daemons'
 gem 'jquery-ui-rails'
 gem 'jquery-ui-sass-rails'
 gem 'jquery-datatables-rails'
+gem 'will_paginate'
 
 group :development, :test do
   gem 'quiet_assets'
