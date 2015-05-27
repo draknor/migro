@@ -267,6 +267,9 @@ class MigrationService
       comments << array_search(data_custom,options_custom.merge({search_value: 'Rec: Recruitment/ Placement notes'})).to_s
       comments << array_search(data_custom,options_custom.merge({search_value: 'Rec: BlueTree Quality Comments'})).to_s
 
+      owner = map_assoc(:corporate_user, :name, array_search(data_custom, options_custom.merge({search_value: 'Rec: Primary Contact / Advocate / Manager'})))
+      owner = nil if owner.empty?
+
       # dateAdded: format_timestamp(source_entity.created_at),
       target_update.merge!({
           firstName: source_entity.first_name,
@@ -293,7 +296,7 @@ class MigrationService
           employmentPreference: map_value(:employmentPreference, array_search(data_custom,options_custom.merge({search_value: 'Rec: FTE preferences'}))),
           dateAvailable: format_timestamp(array_search(data_custom,options_custom.merge({search_value: 'Rec: Available after:'}))),
           travelLimit: format_travel_limit(array_search(data_custom,options_custom.merge({search_value: 'Rec: Max Travel %'}))),
-          owner: map_assoc(:corporate_user, :name, array_search(data_custom, options_custom.merge({search_value: 'Rec: Primary Contact / Advocate / Manager'}))),
+          owner: owner,
           referredBy: referred_by_name,
           referredByPerson: nil,
           customText1: map_value(:customText1, array_search(data_custom, options_custom.merge({search_value: 'Rec: Open to BlueTree Roles?'}))),
@@ -383,7 +386,7 @@ class MigrationService
     puts "[debug] #get_target_entity id=#{@current[:source_id]}"
     return nil if @current[:source_id].nil?
     target_entities = search_assoc(@target_entity_type,'customInt1',@current[:source_id])
-    if target_entities[0].class == ServiceError
+    if target_entities.class == ServiceError || target_entities[0].class == ServiceError
       log_error("Error retrieving target: #{target_entities[0].message}")
       return nil
     end
@@ -553,7 +556,7 @@ class MigrationService
     log_error("No metadata for field '#{field}'") if meta_fields.empty?
 
     if meta_fields[0].class == ServiceError
-      log_error("Error retrieving field '#{field} metadata: #{meta_fields[0].message}")
+      log_error("Error retrieving field '#{field}' metadata: #{meta_fields[0].message}")
       meta_fields = []
     end
 
@@ -595,9 +598,15 @@ class MigrationService
 
   def cache_assoc(entity, field, val)
     assoc_entities = search_assoc(entity, field, val)
+    if assoc_entities.class == ServiceError || assoc_entities[0].class == ServiceError
+      log_error("Error retrieving associated records: #{assoc_entities[0].message}")
+      assoc_entity = Hashie::Mash.new
+    else
+      assoc_entity = assoc_entities.count == 1 ? assoc_entities[0] : Hashie::Mash.new
+    end
     @mapping_assoc[entity] ||= {}
     @mapping_assoc[entity][field] ||= {}
-    @mapping_assoc[entity][field][val] = assoc_entities.count == 1 ? assoc_entities[0] : Hashie::Mash.new
+    @mapping_assoc[entity][field][val] = assoc_entity
   end
 
   def search_assoc(entity,field,val)
