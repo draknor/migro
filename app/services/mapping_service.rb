@@ -252,7 +252,7 @@ class MappingService
         new_value = case field.to_sym
                       when :state
                         us_state = STATES[value.strip.upcase.to_sym] unless value.blank?
-                        us_state.blank? ? value.strip : us_state
+                        us_state.blank? ? value : us_state
                       when :countryID
                         value.blank? ? 'United States' : value
                     end

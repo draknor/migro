@@ -153,7 +153,7 @@ class MigrationService
     puts "[debug] #migrate_person id=#{@current[:source_id]}"
 
     source_entity = @current[:source_entity]
-    data_custom = source_entity.subject_datas.map {|n| n.attributes} #if source_entity.respond_to?(:subject_datas)
+    data_custom = source_entity.respond_to?(:subject_datas) ? source_entity.subject_datas.map {|n| n.attributes} : []
 
     target_type = array_search(data_custom, options_custom.merge({search_value: 'zzz Migration Flag- Contact vs Candidate'}))
 
@@ -177,15 +177,12 @@ class MigrationService
 
     source_entity = @current[:source_entity]
     target_update = {}
-    data_contact = source_entity.contact_data.attributes
+    data_contact = source_entity.respond_to?(:contact_data) ? source_entity.contact_data.attributes : []
     data_custom = source_entity.respond_to?(:subject_datas) ? source_entity.subject_datas.map {|n| n.attributes} : []
 
     if @run.test_only? || @run.create_shell?
       client_corp_obj = map_assoc(:client_corporation, 'customInt1', source_entity.company_id)
-      if client_corp_obj[:id].blank?
-        log_error("Prerequisite not available: Company=#{source_entity.company_id}")
-        return
-      end
+      client_corp_obj = {id: 234777598} if client_corp_obj[:id].blank?  # default value
 
       contact_name = map_assoc(:client_corporation, 'customInt1', source_entity.company_id, :customText3)[:customText3]
       contact_obj = map_assoc(:corporate_user, 'name', contact_name)
@@ -195,11 +192,7 @@ class MigrationService
       emails = array_search_multi(data_contact['email_addresses'], options_work.merge({value_attrib: :address, description: 'work email'}))
       emails = emails + array_search_multi(data_contact['email_addresses'], options_home.merge({value_attrib: :address, description: 'home email'}))
       emails = emails + array_search_multi(data_contact['email_addresses'], options_home.merge({value_attrib: :address, search_value: 'Other', description: 'other email'}))
-
-      if emails.count < 1
-        log_error('Required field not available: email')
-        return
-      end
+      emails[0] = 'unknown' if emails.count < 1
 
       target_update.merge!({
          firstName: source_entity.first_name,
@@ -240,7 +233,7 @@ class MigrationService
     source_entity = @current[:source_entity]
     target_update = {}
     target_update_assoc = {}
-    data_contact = source_entity.contact_data.attributes
+    data_contact = source_entity.respond_to?(:contact_data) ? source_entity.contact_data.attributes : []
     data_custom = source_entity.respond_to?(:subject_datas) ? source_entity.subject_datas.map {|n| n.attributes} : []
 
     if @run.test_only? || @run.create_shell?
@@ -364,7 +357,7 @@ class MigrationService
     source_entity = @current[:source_entity]
 
     target_update = {}
-    data_contact = source_entity.contact_data.attributes
+    data_contact = source_entity.respond_to?(:contact_data) ? source_entity.contact_data.attributes : []
     data_custom = source_entity.respond_to?(:subject_datas) ? source_entity.subject_datas.map {|n| n.attributes} : []
 
     if @run.test_only? || @run.create_shell?
@@ -562,7 +555,7 @@ class MigrationService
   end
 
   def log_exception(e)
-    msg = "Exception: #{e.message} | Backtrace: #{e.backtrace.inspect}"
+    msg = "Exception: #{e.message} \n Backtrace: #{e.backtrace.join("\n").gsub(Rails.root.to_s,"")}"
     id = @current.nil? ? nil : @current[:source_id]
     @run.migration_logs.create(log_type: MigrationLog.log_types[:exception], message: msg, id_list: id)
   end
