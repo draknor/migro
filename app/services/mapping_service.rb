@@ -307,7 +307,8 @@ class MappingService
   end
 
   def self.get_hr_deal_owner(deal_id)
-    DEAL_CONTACT_OWNER[deal_id.to_i]
+    owner = DEAL_CONTACT_OWNER[deal_id.to_i]
+    owner ? owner : 234766637
   end
 
 end

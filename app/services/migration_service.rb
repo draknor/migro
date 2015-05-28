@@ -464,7 +464,7 @@ class MigrationService
 
   def get_target_entity
     puts "[debug] #get_target_entity id=#{@current[:source_id]} => #{@target_entity_type}"
-    return nil if @current[:source_id].nil?
+    # return nil if @current[:source_id].nil?
     target_entities = search_assoc(@target_entity_type,'customInt1',@current[:source_id])
     puts "[debug] #get_target_entity: results = #{target_entities.inspect}"
     if target_entities.class == ServiceError || target_entities[0].class == ServiceError
@@ -635,7 +635,8 @@ class MigrationService
     transform_val = MappingService.transform(@target.integration_type, @target_entity_type, field, val)
 
     return '' if transform_val.blank?
-    transform_val.strip!.downcase!
+    transform_val.downcase!
+    transform_val.strip!
 
     log_error("No mapped value found for '#{val}' #{val == transform_val ? '' : "(transformed to #{transform_val})"} in #{field}") if @mapping_values[field][transform_val].blank?
 

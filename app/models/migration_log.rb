@@ -14,9 +14,15 @@ class MigrationLog < ActiveRecord::Base
   def add_id(id)
     if self.id_list.nil? || self.id_list.length == 0
       self.id_list = id.to_s if id.to_s.length < 255
-    else
+    elsif self.id_list.length < 248
       new_list = self.id_list + "\n" + id.to_s
-      self.id_list = new_list if new_list.length < 255
+      if new_list.length < 248
+        self.id_list = new_list
+      else
+        self.id_list = self.id_list + "\n" + "+more"
+      end
+    else
+      # do nothing
     end
   end
 
