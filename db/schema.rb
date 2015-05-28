@@ -11,7 +11,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 20150505201734) do
+ActiveRecord::Schema.define(version: 20150528034130) do
 
   create_table "delayed_jobs", force: :cascade do |t|
     t.integer  "priority",   limit: 4,     default: 0, null: false
@@ -59,6 +59,8 @@ ActiveRecord::Schema.define(version: 20150505201734) do
     t.boolean  "all_records",           limit: 1
     t.text     "record_list",           limit: 65535
     t.integer  "phase",                 limit: 4
+    t.datetime "abort_at"
+    t.integer  "start_page",            limit: 4
   end
 
   create_table "systems", force: :cascade do |t|

@@ -31,6 +31,20 @@
           td = "#{@migration_run.records_migrated.to_i}  / #{@migration_run.max_records}" unless @migration_run.max_records.nil?
 .row
   .medium-6.columns
+    h3 Exception Logs
+    table#exceptions
+      thead
+        tr
+          th Date/Time
+          th Exception
+          th Record ID
+      tbody
+        - @migration_run.migration_logs.exception.each do |log|
+          tr
+            td = format_time(log.created_at)
+            td = log.message
+            td = log.id_list
+
     h3 Error Logs
     table#errors
       thead
@@ -50,6 +64,7 @@
               div id="log#{log.id}err" data-dropdown-content="" class="small f-dropdown content" aria-hidden="true" tabindex="-1"
                 pre
                   = log.id_list
+
 
   .medium-6.columns
     h3 Info Logs
@@ -84,6 +99,8 @@
                 pre
                   = JSON.pretty_generate(JSON.parse log.target_after)
 .row
+  = link_to 'Abort', abort_migration_run_path(@migration_run), class: 'button tiny' if @migration_run.running?
+  | &nbsp;
   = link_to 'Execute', execute_migration_run_path(@migration_run), class: 'button tiny' if @migration_run.created?
   | &nbsp;
   = link_to 'Edit', edit_migration_run_path(@migration_run), class: 'button tiny'

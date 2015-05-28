@@ -54,6 +54,24 @@ $(document).ready( function() {
       }
     });
 
+    $('table#exceptions').DataTable({
+      ordering: false,
+      dom: 'T<"clear">lfrtip',
+      tableTools: {
+        "sSwfPath": "<%= asset_path('copy_csv_xls_pdf.swf') %>",
+        "aButtons": [
+          {
+            "sExtends": "xls",
+            "sFileName": $('#run_name').text() + " - " + (new Date()).toISOString().split("T")[0] + " - exceptions.csv"
+          },
+          {
+            "sExtends": "pdf",
+            "sFileName": $('#run_name').text() + " - " + (new Date()).toISOString().split("T")[0] + " - exceptions.pdf"
+          }
+        ]
+      }
+    });
+
   }
 });
 

@@ -47,6 +47,12 @@
 
     .field.row
       .small-2.columns.text-right
+        = f.label :start_page
+      .small-10.columns
+        = f.input :start_page, label: false
+
+    .field.row
+      .small-2.columns.text-right
         = f.label :record_list
       .small-10.columns
         = f.input :record_list, label: false

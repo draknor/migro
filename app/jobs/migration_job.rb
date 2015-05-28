@@ -7,8 +7,7 @@ class MigrationJob < ActiveJob::Base
     begin
       migration.run
     rescue => e
-      migration.log_error(e.message)
-      migration.rescue_after_error
+      migration.rescue_after_error(e)
     end
   end
 

@@ -26,6 +26,7 @@ class MigrationService
       }
     }
     @current = {}
+    @abort_last_check_at = Time.now
 
   end
 
@@ -72,34 +73,47 @@ class MigrationService
       if entity.nil?
         log_error("Could not find entity with ID #{@current[:source_id]} in #{@source.system_type}")
       else
-        @current[:source_entity] = entity
-        self.send "migrate_#{@source_entity_type}"
+        begin
+          @current[:source_entity] = entity
+          self.send "migrate_#{@source_entity_type}"
+        rescue => e
+          log_exception(e)
+        end
         @run.increment_record!
-
       end
+      break if abort_run
     end
     @current = {}
 
     if @run.all_records
-      page = 0
+      page = @run.start_page.nil? ? 1 : @run.start_page
       max = (@run.max_records == -1) ? 0 : @run.max_records
       begin
-        page = page + 1
         entities = @source.retrieve(@source_entity_type,nil,page)
         max = max + entities.count
         @run.update(max_records: max)
         entities.each do |entity|
-          @current = { source_id: entity.id, source_entity: entity }
-          self.send "migrate_#{@source_entity_type}"
+          begin
+            @current = { source_id: entity.id, source_entity: entity }
+            self.send "migrate_#{@source_entity_type}"
+          rescue => e
+            log_exception(e)
+          end
           @run.increment_record!
-
+          break if abort_run
         end
         @current = {}
+        page = page + 1
+        break if abort_run
       end while entities.count > 0
     end
 
     @run.ended_at = Time.now
-    if @error_logs.keys.count > 0
+    if @run.abort_at
+      @run.aborted!
+    elsif @run.migration_logs.exception.count > 0
+      @run.failed!
+    elsif @error_logs.keys.count > 0
       @run.completed_error!
     else
       @run.completed_success!
@@ -107,6 +121,11 @@ class MigrationService
 
   end
 
+  def abort_run
+    puts "[debug] MigrationService#abort_run check: #{Time.now}"
+    @run.reload if @abort_last_check_at < 10.seconds.ago
+    @run.abort_at
+  end
 
   def error_check
     if @valid_entity_maps[@source.integration_type.to_sym].nil?
@@ -124,9 +143,10 @@ class MigrationService
     end
   end
 
-  def rescue_after_error
+  def rescue_after_error(e)
     @run.ended_at = Time.now
-    @run.completed_error!
+    @run.failed!
+    log_exception(e)
   end
 
   def migrate_person
@@ -540,6 +560,12 @@ class MigrationService
     end
   end
 
+  def log_exception(e)
+    msg = "Exception: #{e.message} | Backtrace: #{e.backtrace.inspect}"
+    id = @current.nil? ? nil : @current[:source_id]
+    @run.migration_logs.create(log_type: MigrationLog.log_types[:exception], message: msg, id_list: id)
+  end
+
   # source_entity, target_entity_id, target_before, target_after, message
   def log_migration(v={})
     @run.migration_logs.create(log_type: MigrationLog.log_types[:mapped], source_id: v[:source_entity_type].id, source_before: v[:source_entity_type].to_json, target_id: v[:target_entity_id], target_before: v[:target_before].to_json, target_after: v[:target_after].to_json, message: v[:message])
@@ -575,7 +601,7 @@ class MigrationService
   end
 
   def format_timestamp(val)
-    # puts "[debug] format_timestamp: val=#{val} (#{val.class})"
+    puts "[debug] format_timestamp: val=#{val} (#{val.class})"
     return nil if val.blank?
     val = val.to_time if val.class == String
     val.to_i == 0 ? nil : val.to_i*1000

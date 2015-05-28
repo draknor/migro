@@ -1,7 +1,7 @@
 class MigrationRunsController < ApplicationController
   before_action :authenticate_user!
   before_action :set_user
-  before_action :set_migration_run, only: [:show, :edit, :update, :destroy, :execute]
+  before_action :set_migration_run, only: [:show, :edit, :update, :destroy, :execute, :abort]
 
   # GET /migration_runs
   def index
@@ -50,6 +50,18 @@ class MigrationRunsController < ApplicationController
 
   end
 
+  def abort
+    unless @migration_run.running?
+      flash[:error] = 'Cannot abort run - no longer running'
+      redirect_to migration_runs_path
+    else
+      @migration_run.abort
+      flash[:notice] = 'Execution is aborting!'
+    end
+    redirect_to migration_run_path(@migration_run)
+
+  end
+
   # Probably scrap the rest of these methods - leave stubs here for now ####################
 
   # # GET /migration_runs/1/edit
@@ -84,6 +96,6 @@ class MigrationRunsController < ApplicationController
 
     # Only allow a trusted parameter "white list" through.
     def migration_run_params
-      params.require(:migration_run).permit(:name, :source_system_id, :destination_system_id, :user_id, :entity_type, :all_records, :record_list, :phase)
+      params.require(:migration_run).permit(:name, :source_system_id, :destination_system_id, :user_id, :entity_type, :all_records, :record_list, :phase, :start_page)
     end
 end

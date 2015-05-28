@@ -8,6 +8,7 @@ Rails.application.routes.draw do
   resources :migration_runs do
     member do
       get 'execute'
+      get 'abort'
     end
   end
   resources :systems do

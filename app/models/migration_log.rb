@@ -1,6 +1,6 @@
 class MigrationLog < ActiveRecord::Base
 
-  enum log_type: [:error, :mapped]
+  enum log_type: [:error, :mapped, :exception]
   belongs_to :migration_run
   before_save :truncate_message
 
