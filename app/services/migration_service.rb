@@ -406,26 +406,32 @@ class MigrationService
     if @run.test_only? || @run.create_shell?
       client_corp_obj = map_assoc(:client_corporation, 'customInt1', source_entity.party_id)
       if client_corp_obj[:id].blank?
-        log_error("Prerequisite not available: Company=#{source_entity.party_id}")
+        log_error("Missing Company=#{source_entity.party_id}")
         return
       end
 
       client_contact_obj = map_assoc(:client_contact, 'customInt1', MappingService.get_hr_deal_owner(@current[:source_id]))
       if client_contact_obj[:id].blank?
-        log_error("Prerequisite not available: Contact=#{MappingService.get_hr_deal_owner(@current[:source_id])}")
+        log_error("Missing Contact=#{MappingService.get_hr_deal_owner(@current[:source_id])}")
         return
       end
 
       owner_name = get_source_name(:user, source_entity.responsible_party_id)
       owner_obj = map_assoc(:corporate_user, 'name', owner_name)
       if owner_obj[:id].blank?
-        log_error("Prerequisite not available: Sales Owner=#{owner_name} (#{source_entity.responsible_party_id})")
-        return
+        log_error("Missing Owner=#{owner_name} (#{source_entity.responsible_party_id}) - applying default")
+        owner_obj = nil
       end
 
       employment_type = map_value(:employmentType,source_entity.category.name)
       priority = source_entity.name.match(/\[P:(\d+)\]/) ? source_entity.name.match(/\[P:(\d+)\]/)[1] : 3
-      status = source_entity.status == 'won' ? 'Won' : map_value(:status,source_entity.category.name)
+      if source_entity.status == 'won'
+        status = 'Won'
+      elsif source_entity.respond_to?(:category)
+        status = map_value(:status,source_entity.category.name)
+      else
+        status = nil
+      end
 
       target_update.merge!({
              title: format_str(source_entity.name,100),
@@ -434,7 +440,6 @@ class MigrationService
              clientContact: client_contact_obj,
              description: format_textbox_html(source_entity.background),
              employmentType: employment_type,
-             owner: owner_obj,
              clientBillRate: source_entity.price_type == 'hour' ? source_entity.price : nil,
              isOpen: (source_entity.status == 'pending'),
              status: status,
@@ -442,6 +447,7 @@ class MigrationService
              salaryUnit: map_value(:salaryUnit, source_entity.price_type),
              type: priority
          })
+      target_update.merge!({owner: owner_obj }) unless owner_obj.nil?
 
       case employment_type
         when 'Contract', 'Contract (C2C)'
