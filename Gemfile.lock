@@ -1,7 +1,7 @@
 GIT
   remote: https://github.com/draknor/bullhorn-rest.git
-  revision: f92d0529577c5fc7eded58be78f75e3e45b0cb49
-  branch: fix_query_for_job_order
+  revision: f7f3ac2ca00d67381cdac661a67cf94958b52ceb
+  branch: get_associations
   specs:
     bullhorn-rest (0.0.1.14)
       activesupport

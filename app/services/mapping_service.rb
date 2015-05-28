@@ -195,7 +195,7 @@ class MappingService
                               "internal" => "Active Internal",
                               "internal consultant" => "Salaried Consultant",
                               "no" => ''
-                            }[value.downcase] unless value.blank?
+                            }[value.strip.downcase] unless value.blank?
                           when :customText16
                             {
                               "w2 (30/20)" => "w2 - 30/20",
@@ -203,7 +203,7 @@ class MappingService
                               "1099 (33/23)" => "1099 - 33/23",
                               "1099 (30/20)" => "1099 - 30/20",
                               "c2c" => "c2c",
-                            }[value.downcase] unless value.blank?
+                            }[value.strip.downcase] unless value.blank?
                         end
 
                       when :client_contact
@@ -251,8 +251,8 @@ class MappingService
       if new_value.nil?
         new_value = case field.to_sym
                       when :state
-                        us_state = STATES[value.upcase.to_sym] unless value.blank?
-                        us_state.blank? ? value : us_state
+                        us_state = STATES[value.strip.upcase.to_sym] unless value.blank?
+                        us_state.blank? ? value.strip : us_state
                       when :countryID
                         value.blank? ? 'United States' : value
                     end
@@ -267,7 +267,7 @@ class MappingService
     subject_datas.each do |subject|
       app = ZCONAPP[subject[:subject_field_label].downcase]
       unless app.blank?
-        values = subject[:value].downcase.chars
+        values = subject[:value].strip.downcase.chars
         [:p, :c, :q, :t].each do |pref|
           if values.include?(pref.to_s)
             apps[pref] ||= []
@@ -289,7 +289,7 @@ class MappingService
     subject_datas.each do |subject|
       role = ZCONROLE[subject[:subject_field_label].downcase]
       unless role.blank?
-        values = subject[:value].downcase.chars
+        values = subject[:value].strip.downcase.chars
         [:p, :q, :e, :s].each do |pref|
           if values.include?(pref.to_s)
             roles[pref] ||= []

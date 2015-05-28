@@ -296,7 +296,7 @@ class MigrationService
       target_update.merge!({
           firstName: source_entity.first_name,
           lastName: source_entity.last_name,
-          name: source_entity.first_name + ' ' + source_entity.last_name,
+          name: source_entity.first_name.to_s + ' ' + source_entity.last_name.to_s,
           customInt1: @current[:source_id],
           companyName: source_entity.company_name,
           companyURL: source_entity.linkedin_url,
@@ -431,7 +431,7 @@ class MigrationService
       end
 
       employment_type = map_value(:employmentType,source_entity.category.name)
-      priority = source_entity.name.match(/\[P:(\d+)\]/) ? source_entity.name.match(/\[P:(\d+)\]/)[1] : nil
+      priority = source_entity.name.match(/\[P:(\d+)\]/) ? source_entity.name.match(/\[P:(\d+)\]/)[1] : 3
 
       target_update.merge!({
              title: format_str(source_entity.name,100),
@@ -465,7 +465,7 @@ class MigrationService
   def get_target_entity
     puts "[debug] #get_target_entity id=#{@current[:source_id]} => #{@target_entity_type}"
     return nil if @current[:source_id].nil?
-    target_entities = search_assoc(@target_entity_type,'customInt1',@current[:source_id].to_i)
+    target_entities = search_assoc(@target_entity_type,'customInt1',@current[:source_id])
     puts "[debug] #get_target_entity: results = #{target_entities.inspect}"
     if target_entities.class == ServiceError || target_entities[0].class == ServiceError
       log_error("Error retrieving target: #{target_entities[0].message}")
@@ -635,7 +635,7 @@ class MigrationService
     transform_val = MappingService.transform(@target.integration_type, @target_entity_type, field, val)
 
     return '' if transform_val.blank?
-    transform_val.downcase!
+    transform_val.strip!.downcase!
 
     log_error("No mapped value found for '#{val}' #{val == transform_val ? '' : "(transformed to #{transform_val})"} in #{field}") if @mapping_values[field][transform_val].blank?
 
@@ -684,6 +684,7 @@ class MigrationService
 
   def map_assoc(entity, field, val, attrib = :id)
     return {} if val.nil? || val.blank?
+    val = val.to_i if field == 'customInt1'  #force it to int
     cache_assoc(entity, field, val) if @mapping_assoc[entity].nil? || @mapping_assoc[entity][field].nil? || @mapping_assoc[entity][field][val].nil?
 
     return {} if @mapping_assoc[entity][field][val][attrib].blank?
@@ -705,6 +706,7 @@ class MigrationService
 
   def search_assoc(entity,field,val)
     return nil if val.blank?
+    val = val.to_i if field == 'customInt1'  #force it to int
     if entity == :candidate
       qval = val.class == String ? double_quote(val) : val
       query = "#{field.to_s}:#{qval}"

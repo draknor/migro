@@ -112,9 +112,8 @@ class BullhornSystem < BaseSystem
   end
 
   def self.add_association(entity,id,assoc_entity,values = [])
-    curr_vals = []
-    curr_resp = @client.send entity.to_s, id, {fields: assoc_entity}
-    curr_vals = curr_resp[:data][assoc_entity][:data].map {|n| n.id}
+    curr_resp = @client.send "get_#{entity}_associations", id, assoc_entity, {fields: id}
+    curr_vals = curr_resp[:data].map {|n| n[:id]}
 
     if (values - curr_vals).count < 1
       resp = Hashie::Mash.new
