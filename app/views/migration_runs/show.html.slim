@@ -42,7 +42,9 @@
         - @migration_run.migration_logs.exception.each do |log|
           tr
             td = format_time(log.created_at)
-            td = log.message
+            td
+              pre
+                = log.message
             td = log.id_list
 .row
   .medium-12.columns

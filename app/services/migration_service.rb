@@ -555,7 +555,7 @@ class MigrationService
   end
 
   def log_exception(e)
-    msg = "Exception: #{e.message} \n Backtrace: #{e.backtrace.join("\n").gsub(Rails.root.to_s,"")}"
+    msg = "Exception: #{e.message}\nBacktrace:\n#{e.backtrace.join("\n").gsub(Rails.root.to_s,"")}"
     id = @current.nil? ? nil : @current[:source_id]
     @run.migration_logs.create(log_type: MigrationLog.log_types[:exception], message: msg, id_list: id)
   end
