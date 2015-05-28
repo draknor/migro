@@ -432,6 +432,7 @@ class MigrationService
 
       employment_type = map_value(:employmentType,source_entity.category.name)
       priority = source_entity.name.match(/\[P:(\d+)\]/) ? source_entity.name.match(/\[P:(\d+)\]/)[1] : 3
+      status = source_entity.status == 'won' ? 'Won' : map_value(:status,source_entity.category.name)
 
       target_update.merge!({
              title: format_str(source_entity.name,100),
@@ -443,7 +444,7 @@ class MigrationService
              owner: owner_obj,
              clientBillRate: source_entity.price_type == 'hour' ? source_entity.price : nil,
              isOpen: (source_entity.status == 'pending'),
-             status: map_value(:status,source_entity.category.name),
+             status: status,
              startDate: format_timestamp(source_entity.created_at),
              salaryUnit: map_value(:salaryUnit, source_entity.price_type),
              type: priority
