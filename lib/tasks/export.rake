@@ -1,5 +1,3 @@
-require 'CSV'
-
 namespace :export do
   desc "export logs"
   task :logs,[:file, :run_id] => :environment do |t,args|
