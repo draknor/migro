@@ -15,7 +15,7 @@
       - @results.each do |result|
         tr
           td = result.id
-          td = result.name
+          td = result.name if result.respond_to?(:name)
           td = result.party.name if result.respond_to?(:party) && result.party.respond_to?(:name)
           td
             - unless result.responsible_party_id.blank?
@@ -42,7 +42,7 @@
       - @results.each do |result|
         tr
           td = result.id
-          td = result.name
+          td = result.name if result.respond_to?(:name)
           td
             a data-dropdown="result#{result.id}" aria-controls="result#{result.id}" aria-expanded="false" Details
             div id="result#{result.id}" data-dropdown-content="" class="large f-dropdown content" aria-hidden="true" tabindex="-1"
