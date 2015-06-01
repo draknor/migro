@@ -205,8 +205,17 @@ class MigrationService
     data_custom = source_entity.respond_to?(:subject_datas) ? source_entity.subject_datas.map {|n| n.attributes} : []
 
     if @run.test_only? || @run.create_shell?
-      client_corp_obj = map_assoc(:client_corporation, 'customInt1', source_entity.company_id)
-      client_corp_obj = {id: MappingService::DEFAULT_COMPANY } if client_corp_obj[:id].blank?  # default value
+      if source_entity.company_id.blank?
+        log_error("No company in Highrise - applying default")
+        client_corp_obj = map_assoc(:client_corporation, 'customInt1', MappingService::DEFAULT_COMPANY)
+      else
+        client_corp_obj = map_assoc(:client_corporation, 'customInt1', source_entity.company_id)
+      end
+
+      if client_corp_obj[:id].blank?
+        log_error("Missing Company=#{source_entity.company_id} - not migrating Contact")
+        return
+      end
 
       contact_name = map_assoc(:client_corporation, 'customInt1', source_entity.company_id, :customText3)[:customText3]
       contact_obj = map_assoc(:corporate_user, 'name', contact_name)
@@ -467,15 +476,16 @@ class MigrationService
     target_update = {}
 
     if @run.test_only? || @run.create_shell?
-      client_corp_obj = map_assoc(:client_corporation, 'customInt1', source_entity.party_id)
+      if source_entity.party_id.blank?
+        log_error("Blank Company - applying default")
+        client_corp_obj = map_assoc(:client_corporation, 'customInt1', MappingService::DEFAULT_COMPANY)
+      else
+        client_corp_obj = map_assoc(:client_corporation, 'customInt1', source_entity.party_id)
+      end
+
       if client_corp_obj[:id].blank?
-        if source_entity.party_id.blank?
-          log_error("Blank Company - applying default")
-          client_corp_obj[:id] = MappingService::DEFAULT_COMPANY
-        else
-          log_error("Missing Company=#{source_entity.party_id} - not migrating deal")
-          return
-        end
+        log_error("Missing Company=#{source_entity.party_id} - not migrating deal")
+        return
       end
 
       client_contact_obj = map_assoc(:client_contact, 'customInt1', MappingService.get_hr_deal_owner(@current[:source_id]))
@@ -487,23 +497,19 @@ class MigrationService
       owner_name = get_source_name(:user, source_entity.responsible_party_id)
       owner_obj = map_assoc(:corporate_user, 'name', owner_name)
       if owner_obj[:id].blank?
-        if source_entity.responsible_party_id.blank?
-          log_error("Blank Owner - applying default")
-          owner_obj[:id] = MappingService::DEFAULT_CONTACT
-        else
-          log_error("Missing Owner=#{owner_name} (#{source_entity.responsible_party_id})")
-          owner_obj = nil
-        end
+        log_error("Missing Owner=#{owner_name} (#{source_entity.responsible_party_id}) - applying default")
+        owner_obj = nil
       end
 
       employment_type = source_entity.respond_to?(:category) ? map_value(:employmentType,source_entity.category.name) : 'Other'
       priority = source_entity.name.match(/\[P:(\d+)\]/) ? source_entity.name.match(/\[P:(\d+)\]/)[1] : 3
+
       if source_entity.status == 'won'
         status = 'Won'
       elsif source_entity.respond_to?(:category)
         status = map_value(:status,source_entity.category.name)
       else
-        status = nil
+        status = 'None'
       end
 
       target_update.merge!({
