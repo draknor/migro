@@ -150,10 +150,12 @@ class MigrationService
   end
 
   def get_target_type(source_type = @source_entity_type, source_entity = @current[:source_entity], skip_error_logs = false)
+    # puts "[debug] #get_target_type: source_type = #{source_type} (#{source_type.class})"
     val = nil
-    if source_type == :person
+    if source_type.to_sym == :person
       data_custom = source_entity.respond_to?(:subject_datas) ? source_entity.subject_datas.map {|n| n.attributes} : []
       target_type = array_search(data_custom, options_custom.merge({search_value: 'zzz Migration Flag- Contact vs Candidate'}))
+      # puts "[debug] #get_target_type: target_type = #{target_type}"
 
       if target_type.blank?
         log_error("'Migration Flag - Contact vs Candidate' field not set") unless skip_error_logs
@@ -174,6 +176,7 @@ class MigrationService
   def migrate_person
     puts "[debug] #migrate_person id=#{@current[:source_id]}"
     if @current[:source_entity].respond_to?(:visible_to) && @current[:source_entity].visible_to != 'Everyone'
+      puts "[debug] #migrate_person: Record not visible - ignoring"
       log_error("Record not visible to everyone - only '#{@current[:source_entity].visible_to}'")
       return
     end
@@ -186,6 +189,8 @@ class MigrationService
     elsif target_type == :client_contact
       @target_entity_type = :client_contact
       migrate_person_to_contact
+    else
+      log_error("Unknown target record type for Person: #{target_type}")
     end
   end
 
@@ -321,7 +326,7 @@ class MigrationService
       other_phone = array_search(data_contact['phone_numbers'], options_home.merge({value_attrib: :number, search_value: 'Other'})) if other_phone.blank?
 
       employ_pref = []
-      employ_pref << map_value(:employmentPreference, array_search(data_custom,options_custom.merge({search_value: 'Rec: FTE preferences'})))
+      employ_pref << map_value(:employmentPreference, array_search(data_custom,options_custom.merge({search_value: 'Rec: FTE preferences (Local only; Open to relocation; Not interested)'})))
       employ_pref << map_value(:employmentPreference, array_search(data_custom,options_custom.merge({search_value: 'Rec: Interested in salary?'})))
 
       # dateAdded: format_timestamp(source_entity.created_at),
