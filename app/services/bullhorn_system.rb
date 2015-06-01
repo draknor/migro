@@ -35,16 +35,16 @@ class BullhornSystem < BaseSystem
     JSON.parse @client.settings.data.to_json
   end
 
-  def self.search(entity, query)
+  def self.search(entity, query, options = {})
     return [get_meta(entity)] if query == '-1'
     if query == query.to_i.to_s  # assume query = entity_id if query is an integer
-      return [get(entity,query)]
+      return [get(entity,query,options)]
     end
     case entity.to_s.underscore.pluralize
-      when 'candidates'
-        resp = @client.send "search_#{entity.to_s.underscore.pluralize}", { query: query }
+      when 'candidates', 'notes'
+        resp = @client.send "search_#{entity.to_s.underscore.pluralize}", options.merge({ query: query })
       else
-        resp = @client.send "query_#{entity.to_s.underscore.pluralize}", { where: query }
+        resp = @client.send "query_#{entity.to_s.underscore.pluralize}", options.merge({ where: query })
     end
 
     return resp.data unless resp.data.nil?
@@ -57,13 +57,13 @@ class BullhornSystem < BaseSystem
     []
   end
 
-  def self.get(entity, entity_id)
+  def self.get(entity, entity_id,options = {})
     resp = @client.send entity.to_s, entity_id
     return resp.data unless resp.data.nil?
   end
 
-  def self.query(entity, query)
-    resp = @client.send "query_#{entity.to_s.underscore.pluralize}", { where: query }
+  def self.query(entity, query,options = {})
+    resp = @client.send "query_#{entity.to_s.underscore.pluralize}", options.merge({ where: query })
 
     return resp.data unless resp.data.nil?
     []

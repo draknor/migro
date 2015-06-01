@@ -149,24 +149,43 @@ class MigrationService
     log_exception(e)
   end
 
+  def get_target_type(source_type = @source_entity_type, source_entity = @current[:source_entity], skip_error_logs = false)
+    val = nil
+    if source_type == :person
+      data_custom = source_entity.respond_to?(:subject_datas) ? source_entity.subject_datas.map {|n| n.attributes} : []
+      target_type = array_search(data_custom, options_custom.merge({search_value: 'zzz Migration Flag- Contact vs Candidate'}))
+
+      if target_type.blank?
+        log_error("'Migration Flag - Contact vs Candidate' field not set") unless skip_error_logs
+      elsif target_type.downcase == 'contact'
+        val = :client_contact
+      elsif target_type.downcase == 'candidate'
+        val = :candidate
+      else
+        log_error("'Migration Flag - Contact vs Candidate' value not recognized: '#{target_type}'") unless skip_error_logs
+      end
+    else
+      val = @valid_entity_maps[@source.integration_type.to_sym][@target.integration_type.to_sym][source_type.to_sym]
+    end
+
+    val
+  end
+
   def migrate_person
     puts "[debug] #migrate_person id=#{@current[:source_id]}"
+    if @current[:source_entity].respond_to?(:visible_to) && @current[:source_entity].visible_to != 'Everyone'
+      log_error("Record not visible to everyone - only '#{@current[:source_entity].visible_to}'")
+      return
+    end
 
-    source_entity = @current[:source_entity]
-    data_custom = source_entity.respond_to?(:subject_datas) ? source_entity.subject_datas.map {|n| n.attributes} : []
+    target_type = get_target_type
 
-    target_type = array_search(data_custom, options_custom.merge({search_value: 'zzz Migration Flag- Contact vs Candidate'}))
-
-    if target_type.blank?
-      log_error("'Migration Flag - Contact vs Candidate' field not set")
-    elsif (target_type.downcase == 'contact')
-      @target_entity_type = :client_contact
-      migrate_person_to_contact
-    elsif (target_type.downcase == 'candidate')
+    if target_type == :candidate
       @target_entity_type = :candidate
       migrate_person_to_candidate
-    else
-      log_error("'Migration Flag - Contact vs Candidate' value not recognized: '#{target_type}'")
+    elsif target_type == :client_contact
+      @target_entity_type = :client_contact
+      migrate_person_to_contact
     end
   end
 
@@ -182,7 +201,7 @@ class MigrationService
 
     if @run.test_only? || @run.create_shell?
       client_corp_obj = map_assoc(:client_corporation, 'customInt1', source_entity.company_id)
-      client_corp_obj = {id: 234777598} if client_corp_obj[:id].blank?  # default value
+      client_corp_obj = {id: MappingService::DEFAULT_COMPANY } if client_corp_obj[:id].blank?  # default value
 
       contact_name = map_assoc(:client_corporation, 'customInt1', source_entity.company_id, :customText3)[:customText3]
       contact_obj = map_assoc(:corporate_user, 'name', contact_name)
@@ -193,22 +212,30 @@ class MigrationService
       emails = emails + array_search_multi(data_contact['email_addresses'], options_home.merge({value_attrib: :address, description: 'home email'}))
       emails = emails + array_search_multi(data_contact['email_addresses'], options_home.merge({value_attrib: :address, search_value: 'Other', description: 'other email'}))
       emails[0] = 'unknown' if emails.count < 1
+      if emails.count > 3
+        log_error("More than 3 email addresses")
+      end
+
+      other_phone = array_search(data_contact['phone_numbers'], options_home.merge({value_attrib: :number}))
+      other_phone = array_search(data_contact['phone_numbers'], options_home.merge({value_attrib: :number, search_value: 'Other'})) if other_phone.blank?
 
       target_update.merge!({
          firstName: source_entity.first_name,
          lastName: source_entity.last_name,
-         name: source_entity.first_name + ' ' + source_entity.last_name,
+         name: source_entity.first_name.to_s + ' ' + source_entity.last_name.to_s,
          customInt1: @current[:source_id],
          dateAdded: format_timestamp(source_entity.created_at),
+         status: 'HR Migration',
          occupation: format_str(source_entity.title,50),
          mobile: format_phone(array_search(data_contact['phone_numbers'], options_work.merge({value_attrib: :number, search_value: 'Mobile'}))),
          phone: format_phone(array_search(data_contact['phone_numbers'], options_work.merge({value_attrib: :number}))),
+         phone2: format_phone(other_phone),
+         fax: format_phone(array_search(data_contact['phone_numbers'], options_work.merge({value_attrib: :number, search_value: 'Fax'}))),
          email: emails[0],
          email2: emails.count > 1 ? emails[1] : '',
          email3: emails.count > 2 ? emails[2] : '',
          address: {
-             address1:  format_address( array_search(data_contact['addresses'], options_work.merge({value_attrib: :street})),1),
-             address2:  format_address( array_search(data_contact['addresses'], options_work.merge({value_attrib: :street})),2),
+             address1:  format_address( array_search(data_contact['addresses'], options_work.merge({value_attrib: :street}))),
              city:                      array_search(data_contact['addresses'], options_work.merge({value_attrib: :city})),
              state:     map_value(:state, array_search(data_contact['addresses'], options_work.merge({value_attrib: :state})), :address),
              zip:                       array_search(data_contact['addresses'], options_work.merge({value_attrib: :zip})),
@@ -240,6 +267,9 @@ class MigrationService
       emails = array_search_multi(data_contact['email_addresses'], options_work.merge({value_attrib: :address, description: 'work email'}))
       emails = emails + array_search_multi(data_contact['email_addresses'], options_home.merge({value_attrib: :address, description: 'home email'}))
       emails = emails + array_search_multi(data_contact['email_addresses'], options_home.merge({value_attrib: :address, search_value: 'Other', description: 'other email'}))
+      if emails.count > 3
+        log_error("More than 3 email addresses")
+      end
 
       referred_by_name = array_search(data_custom, options_custom.merge({search_value: 'Rec: Referred By'}))
       referred_by_assoc = {}
@@ -280,10 +310,19 @@ class MigrationService
       vetted_notes << array_search(data_custom,options_custom.merge({search_value: 'Rec: Vetted by #2'}))
       vetted_notes << array_search(data_custom,options_custom.merge({search_value: 'Rec: Vetted by #3'}))
       comments = []
-      comments << "HR Rec/Placement Note: " + array_search(data_custom,options_custom.merge({search_value: 'Rec: Recruitment/Placement Notes'})).to_s
-      comments << ''
-      comments << "HR Quality Comment: " + array_search(data_custom,options_custom.merge({search_value: 'Rec: BlueTree Quality R/Y/G Comments'})).to_s
+      rec_note_text = array_search(data_custom,options_custom.merge({search_value: 'Rec: Recruitment/Placement Notes'}))
+      quality_text = array_search(data_custom,options_custom.merge({search_value: 'Rec: BlueTree Quality R/Y/G Comments'}))
+      comments << "HR Rec/Placement Note: " + rec_note_text unless rec_note_text.blank?
+      comments << '' unless rec_note_text.blank? || quality_text.blank?
+      comments << "HR Quality Comment: " + quality_text unless quality_text.blank?
       owner = map_assoc(:corporate_user, :name, array_search(data_custom, options_custom.merge({search_value: 'Rec: Primary Contact / Advocate / Manager'})))
+
+      other_phone = array_search(data_contact['phone_numbers'], options_home.merge({value_attrib: :number}))
+      other_phone = array_search(data_contact['phone_numbers'], options_home.merge({value_attrib: :number, search_value: 'Other'})) if other_phone.blank?
+
+      employ_pref = []
+      employ_pref << map_value(:employmentPreference, array_search(data_custom,options_custom.merge({search_value: 'Rec: FTE preferences'})))
+      employ_pref << map_value(:employmentPreference, array_search(data_custom,options_custom.merge({search_value: 'Rec: Interested in salary?'})))
 
       # dateAdded: format_timestamp(source_entity.created_at),
       target_update.merge!({
@@ -300,15 +339,22 @@ class MigrationService
           email3: emails.count > 2 ? emails[2] : '',
           mobile: format_phone(array_search(data_contact['phone_numbers'], options_work.merge({value_attrib: :number, search_value: 'Mobile'}))),
           workPhone: format_phone(array_search(data_contact['phone_numbers'], options_work.merge({value_attrib: :number}))),
+          phone2: format_phone(other_phone),
           address: {
-              address1:  format_address( array_search(data_contact['addresses'], options_home.merge({value_attrib: :street})),1),
-              address2:  format_address( array_search(data_contact['addresses'], options_home.merge({value_attrib: :street})),2),
+              address1:  format_address( array_search(data_contact['addresses'], options_home.merge({value_attrib: :street}))),
               city:                      array_search(data_contact['addresses'], options_home.merge({value_attrib: :city})),
               state:     map_value(:state, array_search(data_contact['addresses'], options_home.merge({value_attrib: :state})), :address),
               zip:                       array_search(data_contact['addresses'], options_home.merge({value_attrib: :zip})),
               countryID: map_value(:countryID, array_search(data_contact['addresses'], options_home.merge({value_attrib: :country})), :address)
           },
-          employmentPreference: map_value(:employmentPreference, array_search(data_custom,options_custom.merge({search_value: 'Rec: FTE preferences'}))),
+          secondaryAddress: {
+              address1:  format_address( array_search(data_contact['addresses'], options_work.merge({value_attrib: :street}))),
+              city:                      array_search(data_contact['addresses'], options_work.merge({value_attrib: :city})),
+              state:     map_value(:state, array_search(data_contact['addresses'], options_work.merge({value_attrib: :state})), :address),
+              zip:                       array_search(data_contact['addresses'], options_work.merge({value_attrib: :zip})),
+              countryID: map_value(:countryID, array_search(data_contact['addresses'], options_work.merge({value_attrib: :country})), :address)
+          },
+          employmentPreference: employ_pref,
           dateAvailable: format_timestamp(array_search(data_custom,options_custom.merge({search_value: 'Rec: Available after:'}))),
           travelLimit: format_travel_limit(array_search(data_custom,options_custom.merge({search_value: 'Rec: Max Travel %'}))),
           referredBy: referred_by_name,
@@ -325,12 +371,17 @@ class MigrationService
           customTextBlock5: format_textbox_array(vetted_notes)
       })
 
-      target_update.merge!({owner: owner}) unless owner.empty?
+      if owner.empty?
+        log_error("Missing advocate")
+      else
+        target_update.merge!({owner: owner})
+      end
       target_update.merge!({referredByPerson: referred_by_assoc}) unless referred_by_assoc.empty?
       mapped_apps = MappingService.map_highrise_apps(data_custom)
       target_update.merge!({customText7: map_value_array(:customText7,mapped_apps[:p])}) unless mapped_apps[:p].nil? || mapped_apps[:p].count==0
       target_update.merge!({customText6: map_value_array(:customText6,mapped_apps[:t])}) unless mapped_apps[:t].nil? || mapped_apps[:t].count==0
-      target_update_assoc.merge!({primarySkills: map_value_array(:primarySkills,mapped_apps[:q])}) unless mapped_apps[:q].nil? || mapped_apps[:q].count==0
+      target_update.merge!({customText18: map_value_array(:customText18,mapped_apps[:q])}) unless mapped_apps[:q].nil? || mapped_apps[:q].count==0
+      # target_update_assoc.merge!({primarySkills: map_value_array(:primarySkills,mapped_apps[:q])}) unless mapped_apps[:q].nil? || mapped_apps[:q].count==0
       target_update.merge!({customText12: map_value_array(:customText12,mapped_apps[:c])}) unless mapped_apps[:c].nil? || mapped_apps[:c].count==0
       mapped_apps[:unknown].each { |app| log_error("Unknown ZCONAPP value: '#{app}'") } unless mapped_apps[:unknown].nil?
 
@@ -339,7 +390,8 @@ class MigrationService
       target_update.merge!({customText13: map_value_array(:customText13,mapped_roles[:s])}) unless mapped_roles[:s].nil? || mapped_roles[:s].count==0
       q_roles = mapped_roles[:q].nil? ? [] : mapped_roles[:q]
       e_roles = mapped_roles[:e].nil? ? [] : mapped_roles[:e]
-      target_update_assoc.merge!({specialties: map_value_array(:specialties,q_roles + e_roles)}) unless (q_roles + e_roles).count==0
+      target_update.merge!({customText19: map_value_array(:customText19,q_roles + e_roles)}) unless (q_roles + e_roles).count==0
+      # target_update_assoc.merge!({specialties: map_value_array(:specialties,q_roles + e_roles)}) unless (q_roles + e_roles).count==0
       mapped_roles[:unknown].each { |role| log_error("Unknown ZCONROLE value: '#{role}'") } unless mapped_roles[:unknown].nil?
     end
 
@@ -351,6 +403,11 @@ class MigrationService
 
   def migrate_company
     puts "[debug] #migrate_company id=#{@current[:source_id]}"
+
+    if @current[:source_entity].respond_to?(:visible_to) && @current[:source_entity].visible_to != 'Everyone'
+      log_error("Record not visible to everyone - only '#{@current[:source_entity].visible_to}'")
+      return
+    end
 
     get_target_entity
     return if @current[:target_entity].nil?  # failed
@@ -367,8 +424,7 @@ class MigrationService
         status: map_value(:status, array_search(data_custom, options_custom.merge({search_value: 'AM: Status'}))),
         phone:         format_phone(   array_search(data_contact['phone_numbers'], options_work.merge({value_attrib: :number}))),
         address: {
-            address1:  format_address( array_search(data_contact['addresses'], options_work.merge({value_attrib: :street})),1),
-            address2:  format_address( array_search(data_contact['addresses'], options_work.merge({value_attrib: :street})),2),
+            address1:  format_address( array_search(data_contact['addresses'], options_work.merge({value_attrib: :street}))),
             city:                      array_search(data_contact['addresses'], options_work.merge({value_attrib: :city})),
             state:     map_value(:state, array_search(data_contact['addresses'], options_work.merge({value_attrib: :state})), :address),
             zip:                       array_search(data_contact['addresses'], options_work.merge({value_attrib: :zip})),
@@ -386,7 +442,9 @@ class MigrationService
         customText9:   array_search(data_custom, options_custom.merge({search_value: 'AM: RFA Terms'})),
         customText10:  map_value(:customText10, array_search(data_custom, options_custom.merge({search_value: "AM: SOW (BlueTree's or Client's)"}))),
         customText11:  map_value(:customText11, array_search(data_custom, options_custom.merge({search_value: "HR: HCO requires purchase order ID?"}))),
-        customText12:  format_str(array_search(data_contact['web_addresses'], options_work.merge({value_attrib: :url, search_value: 'Other'})),100)
+        customText15:  format_str(array_search(data_contact['web_addresses'], options_work.merge({value_attrib: :url, search_value: 'Other'})),100),
+        companyDescription: format_textbox(source_entity.background)
+
       })
 
     end
@@ -406,24 +464,34 @@ class MigrationService
     if @run.test_only? || @run.create_shell?
       client_corp_obj = map_assoc(:client_corporation, 'customInt1', source_entity.party_id)
       if client_corp_obj[:id].blank?
-        log_error("Missing Company=#{source_entity.party_id}")
-        return
+        if source_entity.party_id.blank?
+          log_error("Blank Company - applying default")
+          client_corp_obj[:id] = MappingService::DEFAULT_COMPANY
+        else
+          log_error("Missing Company=#{source_entity.party_id} - not migrating deal")
+          return
+        end
       end
 
       client_contact_obj = map_assoc(:client_contact, 'customInt1', MappingService.get_hr_deal_owner(@current[:source_id]))
       if client_contact_obj[:id].blank?
-        log_error("Missing Contact=#{MappingService.get_hr_deal_owner(@current[:source_id])}")
+        log_error("Missing Contact=#{MappingService.get_hr_deal_owner(@current[:source_id])} - not migrating deal")
         return
       end
 
       owner_name = get_source_name(:user, source_entity.responsible_party_id)
       owner_obj = map_assoc(:corporate_user, 'name', owner_name)
       if owner_obj[:id].blank?
-        log_error("Missing Owner=#{owner_name} (#{source_entity.responsible_party_id}) - applying default")
-        owner_obj = nil
+        if source_entity.responsible_party_id.blank?
+          log_error("Blank Owner - applying default")
+          owner_obj[:id] = MappingService::DEFAULT_CONTACT
+        else
+          log_error("Missing Owner=#{owner_name} (#{source_entity.responsible_party_id})")
+          owner_obj = nil
+        end
       end
 
-      employment_type = map_value(:employmentType,source_entity.category.name)
+      employment_type = source_entity.respond_to?(:category) ? map_value(:employmentType,source_entity.category.name) : 'Other'
       priority = source_entity.name.match(/\[P:(\d+)\]/) ? source_entity.name.match(/\[P:(\d+)\]/)[1] : 3
       if source_entity.status == 'won'
         status = 'Won'
@@ -461,6 +529,111 @@ class MigrationService
       update_target(target_update)
     end
   end
+
+  def migrate_history
+    puts "[debug] #migrate_history id=#{@current[:source_id]}"
+    # source_entity = @current[:source]
+    #
+    # source_entity.notes.all.each do |note|
+    #   author_name = get_source_name(:user, note.author_id)
+    #   author_obj = map_assoc(:corporate_user, 'name', author_name)
+    #   if author_obj[:id].blank?
+    #     log_error("Missing Author=#{author_obj} (#{note.author_id}) - applying default")
+    #     author_obj = nil
+    #   else
+    #     author_obj[:_subType] = 'CorporateUser'
+    #   end
+    #
+    #   note_txt = []
+    #   note_txt << "[Highrise Note: Created by #{author_name} on #{format_note_dt(note.created_at)}]"
+    #   note_txt << format_textbox(note.body)
+    #   note_txt << ''
+    #   note_txt << get_comments(note)
+    #   note_txt << ''
+    #   note_txt << note_tag(:note,note.id)
+    #
+    #
+    #   target_update = {
+    #       action: 'HR Migration',
+    #       comments: note_txt.join("\r\n"),
+    #       dateAdded: format_timestamp(note.created_at),
+    #   }
+    #   target_update.merge!({commentingPerson: author_obj}) unless author_obj.nil?
+    #
+    #   target_assoc = {}
+    #
+    #   case note.collection_type.downcase
+    #     when 'deal'
+    #
+    #   end
+    #
+    #
+    #   case note.subject_type.downcase
+    #     when 'deal'
+    #   end
+    #
+    #
+    #
+    #
+    #   target_note = find_target_note(:note,note.id)
+    #   return if target_note.nil? #error occurred, abort
+    #
+    #
+
+    # end
+
+    # source_entity.emails.all.each do |email|
+    #   author_name = get_source_name(:user, note.author_id)
+    #   note_txt = []
+    #   note_txt << "[Highrise Email: Sent to #{email.subject_name} by #{author_name} on #{fmt_note_dt(note.created_at)}]"
+    #   note_txt << "Subject: #{email.title}"
+    #   note_txt << format_textbox(email.body)
+    #   note_txt << get_comments(email)
+    #
+    #
+    #   timestamp = email.created_at.to_i
+    #   history[timestamp] ||= []
+    #   history[timestamp] << note_txt.join("\r\n")
+    # end
+    #
+    # @target_entity_type = get_target_type if @source_entity_type == :person
+    # get_target_entity
+    # return if @current[:target_entity].nil?  # failed
+
+    # Now need to:
+    # - Get target entity
+    # - Create Notes and NoteEntities for
+
+
+
+  end
+
+  def find_target_note(note_type,note_id)
+    notes = @target.search(:note,"comments:'#{note_tag(note_type,note_id)}'",{count: 2})
+    return {} if notes.nil? || notes.empty?
+
+    if notes.count>1
+      log_error("Multiple notes found with tag #{note_tag(note_type,note_id)} - not updating any")
+      return nil
+    end
+    notes[0]
+  end
+
+  def note_tag(note_type,note_id)
+    "[hr.#{note_type.to_s.downcase}.id=#{note_id}]"
+  end
+
+  def get_comments(parent)
+    comment_hx = []
+    parent.comments.each do |comment|  # assuming these are already in chrono order
+      if comment_hx.empty?
+        comment_hx << "[Comments]"
+      end
+      comment_author = get_source_name(:user, comment.author_id)
+      comment_hx << "[#{format_note_dt(comment.created_at)}] #{comment_author}: #{format_textbox(comment.body)}"
+    end
+  end
+
 
   def get_target_entity
     puts "[debug] #get_target_entity id=#{@current[:source_id]} => #{@target_entity_type}"
@@ -575,8 +748,8 @@ class MigrationService
     val.nil? ? nil : number_to_phone(val.tr('()-.– ',''))
   end
 
-  def format_address(val,line)
-    val.nil? || val.blank? ? nil : val.split("\n")[line-1]
+  def format_address(val)
+    val.nil? || val.blank? ? nil : val.gsub("\n"," ").strip
   end
 
   def format_travel_limit(val)
@@ -601,10 +774,14 @@ class MigrationService
   end
 
   def format_timestamp(val)
-    puts "[debug] format_timestamp: val=#{val} (#{val.class})"
+    # puts "[debug] format_timestamp: val=#{val} (#{val.class})"
     return nil if val.blank?
     val = val.to_time if val.class == String
     val.to_i == 0 ? nil : val.to_i*1000
+  end
+
+  def format_note_dt(val)
+    val.in_time_zone("Central Time (US & Canada)").strftime("%b %-d %Y at %I:%M %P %Z")
   end
 
   def format_str(val,max_len = 0)

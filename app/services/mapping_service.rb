@@ -177,6 +177,10 @@ class MappingService
       4254519 => 221023327
   }
 
+  DEFAULT_COMPANY = 234777598
+
+  DEFAULT_CONTACT = 234766637
+
   def self.transform(system_type, entity, field, value='')
     # puts "[debug] transform: system_type: #{system_type}, field: #{field}, value: #{value}"
     new_value = nil
@@ -186,6 +190,14 @@ class MappingService
         new_value = case entity.to_sym
                       when :candidate
                         case field.to_sym
+                          when :employmentPreference
+                            {
+                              "local only" => "Direct Hire (HCO) - Local Only",
+                              "open to relocation" => "Direct Hire (HCO) - Will Relocate",
+                              "not interested" => "No FTE Roles",
+                              "yes" => "Salaried Roles",
+                              "no" => "No Salaried Roles",
+                            }[value.strip.downcase] unless value.blank?
                           when :customText15
                             {
                               "consultant" => "Full-Time Hourly Consultant",
@@ -309,7 +321,7 @@ class MappingService
 
   def self.get_hr_deal_owner(deal_id)
     owner = DEAL_CONTACT_OWNER[deal_id.to_i]
-    owner ? owner : 234766637
+    owner ? owner : DEFAULT_CONTACT
   end
 
 end
