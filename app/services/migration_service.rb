@@ -27,6 +27,8 @@ class MigrationService
     }
     @current = {}
     @abort_last_check_at = Time.now
+    @notes_count = {}
+    @comments_count = {}
 
   end
 
@@ -552,15 +554,23 @@ class MigrationService
       return
     end
 
+    target_reference = {}
+    target_person = nil
     if @target_entity_type.to_sym == :candidate
+      target_reference = {candidates: {id: @current[:target_id]}}
       target_person = {id: @current[:target_id], _subtype: 'Candidate'}
     elsif @target_entity_type.to_sym == :client_contact
+      target_reference = {clientContacts: {id: @current[:target_id]}}
       target_person = {id: @current[:target_id], _subtype: 'ClientContact'}
     elsif @target_entity_type == :job_order
+      target_reference = {jobOrder: {id: @current[:target_id]}}
       target_person = {id: @current[:target_entity][:client_contact][:id], _subtype: 'ClientContact'}
     elsif @target_entity_type == :client_corporation
       target_persons = @target.get_association(:client_corporation,@current[:target_id],:clientContacts,{fields: :id, count: 1})
-      target_person = {id: target_persons[0][:id], _subtype: 'ClientContact'} if target_persons.count > 0
+      if target_persons.count > 0
+        target_reference = {clientContacts: {id: target_persons[0][:id]}}
+        target_person = {id: target_persons[0][:id], _subtype: 'ClientContact'}
+      end
     else
       log_error("No target person defined for type = #{@target_entity_type} - notes not migrated")
       return
@@ -571,6 +581,10 @@ class MigrationService
       return
     end
 
+    @notes_count = {success: 0, failed: 0}
+    @emails_count = {success: 0, failed: 0}
+    @comments_count = {success: 0, failed:0, current_note: 0}
+
     source_entity.notes.each do |note|
       if note.subject_id == @current[:source_id]  # only process notes where this entity is the subject
         author_name = get_source_name(:user, note.author_id)
@@ -580,6 +594,14 @@ class MigrationService
           author_obj = nil
         else
           author_obj[:_subType] = 'CorporateUser'
+        end
+
+        # Highrise: Notes can be attached to (aka subject) 'party' (company/person), or 'deal'
+        # but Collections are only deals (we don't use cases)
+        note_reference = {}
+        if note.collection_type == 'deal' && @source_entity_type != 'deal'
+          job_orders = search_assoc(:job_order,'customInt1',source_entity.collection_id)
+          note_reference[:jobOrder] = { id: job_orders[0][:id]} if job_orders.count == 1
         end
 
         note_txt = []
@@ -594,50 +616,64 @@ class MigrationService
             dateAdded: format_timestamp(note.created_at),
         }
         target_update.merge!({commentingPerson: author_obj}) unless author_obj.nil?
-
-        target_person = {}
-
-        target_assoc = {}
-
-        # Highrise: Notes can be attached to (aka subject) 'party' (company/person), or 'deal'
-        # but Collections are only deals (we don't use cases)
-        if note.collection_type == 'deal' && @source_entity_type != 'deal'
-          # get job_order for collection_id
-          # attach note to job_order
-        end
+        target_update.merge!({jobOrder: target_reference[:jobOrder]}) unless target_reference[:jobOrder].nil?
+        target_update.merge!({jobOrder: note_reference[:jobOrder]}) unless note_reference[:jobOrder].nil?
 
         target_note = find_target_note(:note,note.id)
-        return if target_note.nil? #error occurred, abort
 
-        # create / update note
+        update_target_note(target_note,target_update,target_reference.merge(note_reference))
+
         # add associations
 
       end
     end
 
-    # source_entity.emails.all.each do |email|
-    #   author_name = get_source_name(:user, note.author_id)
-    #   note_txt = []
-    #   note_txt << "[Highrise Email: Sent to #{email.subject_name} by #{author_name} on #{fmt_note_dt(note.created_at)}]"
-    #   note_txt << "Subject: #{email.title}"
-    #   note_txt << format_textbox(email.body)
-    #   note_txt << get_comments(email)
-    #
-    #
-    #   timestamp = email.created_at.to_i
-    #   history[timestamp] ||= []
-    #   history[timestamp] << note_txt.join("\r\n")
-    # end
-    #
-    # @target_entity_type = get_target_type if @source_entity_type == :person
-    # get_target_entity
-    # return if @current[:target_entity].nil?  # failed
-    #
-    # Now need to:
-    # - Get target entity
-    # - Create Notes and NoteEntities for
+    source_entity.emails.each do |email|
+      if email.subject_id == @current[:source_id]  # only process emails where this entity is the subject
+        author_name = get_source_name(:user, email.author_id)
+        author_obj = map_assoc(:corporate_user, 'name', author_name)
+        if author_obj[:id].blank?
+          log_error("Missing Author=#{author_obj} (#{email.author_id}) - applying default")
+          author_obj = nil
+        else
+          author_obj[:_subType] = 'CorporateUser'
+        end
 
+        # Highrise: Notes/emails can be attached to (aka subject) 'party' (company/person), or 'deal'
+        # but Collections are only deals (we don't use cases)
+        note_reference = {}
+        if email.collection_type == 'deal' && @source_entity_type != 'deal'
+          job_orders = search_assoc(:job_order,'customInt1',source_entity.collection_id)
+          note_reference[:jobOrder] = { id: job_orders[0][:id]} if job_orders.count == 1
+        end
 
+        note_txt = []
+        note_txt << "[Highrise Email: Sent to #{email.subject_name} by #{author_name} on #{format_note_dt(note.created_at)}]"
+        note_txt << "Subject: #{email.title}"
+        note_txt << format_textbox(email.body)
+        note_txt << get_attachments(email) if email.respond_to?(:attachments) && email.attachments.count > 0
+        note_txt << get_comments(email)
+        note_txt << '' << note_tag(:email,email.id)
+
+        target_update = {
+            action: 'HR Migration',
+            comments: note_txt.join("\r\n"),
+            dateAdded: format_timestamp(email.created_at),
+        }
+        target_update.merge!({commentingPerson: author_obj}) unless author_obj.nil?
+        target_update.merge!({jobOrder: target_reference[:jobOrder]}) unless target_reference[:jobOrder].nil?
+
+        target_note = find_target_note(:email,email.id)
+
+        update_target_note(target_note,target_update,target_reference.merge(note_reference))
+        target_update.merge!({jobOrder: note_reference[:jobOrder]}) unless note_reference[:jobOrder].nil?
+
+        # add associations
+      end
+    end
+
+    msg = "Success: #{@notes_count[:success]} notes, #{@emails_count[:success]} + #{@comments_count[:success]} comments / Failed: #{@notes_count[:failed]} notes + #{@emails_count[:failed]} emails"
+    log_migration({ source_entity_type: {}, target_entity_id: @current[:target_id], target_before: {}, target_after: {}, message: msg})
 
   end
 
@@ -652,11 +688,58 @@ class MigrationService
     notes[0]
   end
 
+  def update_target_note(current_note,new_note,note_refs)
+    note_id = nil
+    if @run.test_only?
+      msg = "(test only)"
+    else
+      if current_note[:id].blank?
+        result = @target.create(:note, new_note)
+        note_id = result[:changedEntityId] if result.class == Hashie::Mash && !result[:changedEntityId].nil?
+      else
+        result = @target.update(:note, current_note[:id], new_note)
+        note_id = current_note[:id]
+      end
+
+      if result.class == ServiceError
+        log_error("Service Error for Note: #{result.message}")
+        @notes_count[:failed] = @notes_count[:failed] + 1
+      elsif result[:errorMessage]
+        result[:errors].each {|n| log_error("API Error for Note: #{n.inspect}") } unless result[:errors].nil?
+        @notes_count[:failed] = @notes_count[:failed] + 1
+      elsif result[:changeType]
+        @notes_count[:success] = @notes_count[:success] + 1
+        @comments_count[:success] = @comments_count[:success] + @comments_count[:current_note]
+        # create NoteEntity
+        unless note_id.nil?
+          note_refs.each do |ref_type, ref_obj|
+            ref_update = {
+              note: { id: note_id },
+              targetEntityID: ref_obj[:id],
+              targetEntityName: ref_type == :jobOrder ? 'JobOrder' : 'User'
+            }
+            ref_result = @target.create(:noteEntity,ref_update)
+            if ref_result.class == ServiceError
+              log_error("Service Error for NoteEntity: #{result.message}")
+            elsif result[:errorMessage]
+              result[:errors].each {|n| log_error("API Error for NoteEntity: #{n.inspect}") } unless result[:errors].nil?
+            end
+          end
+        end
+     else
+        log_error("Update_Target_Note: Result Unknown! #{result.inspect}")
+        @notes_count[:failed] = @notes_count[:failed] + 1
+      end
+    end
+  end
+
+
   def note_tag(note_type,note_id)
     "[highrise.#{note_type.to_s.downcase}.id=#{note_id}]"
   end
 
   def get_comments(parent)
+    @comments_count[:current_note] = 0
     comment_hx = []
     parent.comments.each do |comment|  # assuming these are already in chrono order
       if comment_hx.empty?
@@ -664,9 +747,24 @@ class MigrationService
       end
       comment_author = get_source_name(:user, comment.author_id)
       comment_hx << "[#{format_note_dt(comment.created_at)}] #{comment_author}: #{format_textbox(comment.body)}"
+      @comments_count[:current_note] = @comments_count[:current_note] + 1
     end
+    comment_hx
   end
 
+  def get_attachments(email)
+    note = []
+    email.attachments.each do |attach|
+      name = attach.respond_to?(:name) ? attach.name.downcase : ''
+      unless name.blank? || name.include?(".png") || name.include?(".jpg") || name.include?(".gif")
+        if note.empty?
+          note << '' << "[Attachments]"
+        end
+        note << '<a href="' + attach.url.to_s + '">' + attach.name + '</a>'
+      end
+    end
+    note
+  end
 
   def get_target_entity
     puts "[debug] #get_target_entity id=#{@current[:source_id]} => #{@target_entity_type}"
