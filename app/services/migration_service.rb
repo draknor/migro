@@ -560,8 +560,15 @@ class MigrationService
       target_person = {id: @current[:target_entity][:client_contact][:id], _subtype: 'ClientContact'}
     elsif @target_entity_type == :client_corporation
       target_persons = @target.get_association(:client_corporation,@current[:target_id],:clientContacts,{fields: :id, count: 1})
-      target_person = {id: @current[:target_entity][:client_contact][:id], _subtype: 'ClientContact'}
+      target_person = {id: target_persons[0][:id], _subtype: 'ClientContact'} if target_persons.count > 0
+    else
+      log_error("No target person defined for type = #{@target_entity_type} - notes not migrated")
+      return
+    end
 
+    if target_person[:id].blank?
+      log_error("No target person found for #{@target_entity_type} = #{@current[:target_id]} - notes not migrated")
+      return
     end
 
     source_entity.notes.each do |note|
@@ -589,8 +596,6 @@ class MigrationService
         target_update.merge!({commentingPerson: author_obj}) unless author_obj.nil?
 
         target_person = {}
-
-
 
         target_assoc = {}
 
