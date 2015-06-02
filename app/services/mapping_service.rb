@@ -64,7 +64,7 @@ class MappingService
       'zconapp anesthesia:' => 'anesthesia',
       'zconapp asap:' => 'asap ed',
       'zconapp beacon:' => 'beacon oncology',
-      'zconapp beaker' => 'beaker cp',
+      'zconapp beaker:' => 'beaker cp',
       'zconapp cadence:' => 'cadence',
       'zconapp claims:' => 'claims',
       'zconapp clarity:' => 'clarity',
@@ -278,7 +278,7 @@ class MappingService
   def self.map_highrise_apps(subject_datas)
     apps = {}
     subject_datas.each do |subject|
-      app = ZCONAPP[subject[:subject_field_label].downcase]
+      app = ZCONAPP[subject[:subject_field_label].strip.downcase]
       unless app.blank?
         values = subject[:value].strip.downcase.chars
         [:p, :c, :q, :t].each do |pref|
