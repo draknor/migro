@@ -129,4 +129,9 @@ class BullhornSystem < BaseSystem
     resp = @client.send "get_#{entity}_associations", id, assoc_entity.to_s.pluralize, options
     resp.data unless resp.data.nil?
   end
+
+  # quick & dirty to clean up my duplicated tasks
+  def self.clean_up_tasks
+    self.retrieve(:task,nil,1).each {|task| self.update(:task,task[:id],{isDeleted: true, taskUUID: nil})}
+  end
 end

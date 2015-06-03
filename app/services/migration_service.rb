@@ -596,15 +596,19 @@ class MigrationService
       source_entity.notes_each_since(from_timestamp) do |note|
         migrate_note(note) if through_timestamp.nil? || through_timestamp > note.created_at
       end
-      source_entity.emails_each_since(from_timestamp) do |email|
-        migrate_email(email)  if through_timestamp.nil? || through_timestamp > email.created_at
+      unless @source_entity_type.to_sym == :company  # companies don't have emails
+        source_entity.emails_each_since(from_timestamp) do |email|
+          migrate_email(email)  if through_timestamp.nil? || through_timestamp > email.created_at
+        end
       end
     elsif (@run.load_history? || @run.update_history? )
       source_entity.notes_each do |note|
         migrate_note(note) if through_timestamp.nil? || through_timestamp > note.created_at
       end
-      source_entity.emails_each do |email|
-        migrate_email(email)  if through_timestamp.nil? || through_timestamp > email.created_at
+      unless @source_entity_type.to_sym == :company  # companies don't have emails
+        source_entity.emails_each do |email|
+          migrate_email(email)  if through_timestamp.nil? || through_timestamp > email.created_at
+        end
       end
     else
       log_error("Unknown run phase in #migrate_history: #{@run.phase}")
@@ -796,7 +800,7 @@ class MigrationService
   def migrate_task
     puts "[debug] #migrate_task id=#{@current[:source_id]}"
     return unless @current[:source_entity].done_at.nil?
-    return unless @current[:source_entity].owner_id == 872193  # DEBUG TODO Flan only
+    # return unless @current[:source_entity].owner_id == 872193  # DEBUG Flan only
 
     get_target_entity
     return if @current[:target_entity].nil?  # failed
@@ -812,16 +816,6 @@ class MigrationService
         return
       end
 
-      if source_entity.alert_at.nil? || source_entity.alert_at < Time.now
-        alert_minutes = 0
-      elsif source_entity.due_at.nil? || source_entity.due_at < Time.now
-        alert_minutes = 0
-      elsif source_entity.due_at < source_entity.alert_at
-        alert_minutes = 0
-      else
-        alert_minutes = (source_entity.due_at.to_i - source_entity.alert_at.to_i)/60
-      end
-
       target_update.merge!({
          dateAdded: format_timestamp(source_entity.created_at),
          dateBegin: format_timestamp(source_entity.due_at),
@@ -830,7 +824,7 @@ class MigrationService
          isCompleted: false,
          isDeleted: false,
          isPrivate: false,
-         notificationMinutes: alert_minutes,
+         notificationMinutes: 30,
          owner: owner_obj,
          subject: format_str(source_entity.body,100),
          taskUUID: @current[:source_id],
@@ -1125,7 +1119,8 @@ class MigrationService
 
   def search_assoc(entity,field,val)
     return nil if val.blank?
-    val = val.to_i if field == 'customInt1'  #force it to int
+    val = val.to_i if field == 'customInt1'  # force it to int
+    val = val.to_s if field == 'taskUUID'    # force to string
     if entity == :candidate
       qval = val.class == String ? double_quote(val) : val
       query = "#{field.to_s}:#{qval}"
