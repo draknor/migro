@@ -868,6 +868,7 @@ class MigrationService
   end
 
   def get_corporation_contact(corp_name)
+    puts "[debug] #get_corporation_contact: name=#{corp_name}"
     return nil if corp_name.blank?
     contact_obj = map_assoc(:client_contact, 'name',"Generic #{truncate_name(corp_name)}")
     if contact_obj.nil? || contact_obj[:id].blank?
@@ -963,7 +964,7 @@ class MigrationService
   end
 
   def truncate_name(val)
-    val.blank? ? '' : val.truncate(val,50,omission:'')
+    val.blank? ? '' : val.truncate(50,omission:'')
   end
   def format_phone(val)
     val.nil? ? nil : number_to_phone(val.tr('()-.– ',''))
@@ -1166,7 +1167,7 @@ class MigrationService
   end
 
   def single_quote(val)
-    "'" + val + "'"
+    "'" + val.gsub("'","''") + "'"
   end
 
   def double_quote(val)
