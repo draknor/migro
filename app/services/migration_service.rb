@@ -489,21 +489,19 @@ class MigrationService
     if @run.test_only? || @run.create_shell?
       if source_entity.party_id.blank?
         log_error("Blank Company - applying default")
-        client_corp_obj = map_assoc(:client_corporation, 'customInt1', MappingService::DEFAULT_COMPANY)
+        client_corp_id = MappingService::DEFAULT_COMPANY
       else
-        client_corp_obj = map_assoc(:client_corporation, 'customInt1', source_entity.party_id)
+        client_corp_id = source_entity.party_id
       end
+      client_corp_obj = map_assoc(:client_corporation, 'customInt1', client_corp_id)
+      client_corp_name_obj = map_assoc(:client_corporation,'customInt1',client_corp_id, :name)  # should be cached now
 
       if client_corp_obj[:id].blank?
         log_error("Missing Company=#{source_entity.party_id} - not migrating deal")
         return
       end
 
-      client_contact_obj = map_assoc(:client_contact, 'customInt1', MappingService.get_hr_deal_owner(@current[:source_id]))
-      if client_contact_obj[:id].blank?
-        log_error("Missing Contact=#{MappingService.get_hr_deal_owner(@current[:source_id])} - not migrating deal")
-        return
-      end
+      client_contact_obj = get_corporation_contact(client_corp_name_obj[:name])
 
       owner_name = get_source_name(:user, source_entity.responsible_party_id)
       owner_obj = map_assoc(:corporate_user, 'name', owner_name)
@@ -575,11 +573,7 @@ class MigrationService
       @target_reference = {jobOrder: {id: @current[:target_id]}}
       @target_person = {id: @current[:target_entity][:clientContact][:id], _subtype: 'ClientContact'}
     elsif @target_entity_type == :client_corporation
-      target_persons = @target.get_association(:client_corporation,@current[:target_id],:clientContacts,{fields: :id, count: 1})
-      if target_persons.count > 0
-        @target_reference = {clientContacts: {id: target_persons[0][:id]}}
-        @target_person = {id: target_persons[0][:id], _subtype: 'ClientContact'}
-      end
+      @target_person = get_corporation_contact(@current[:target_entity][:name])
     else
       log_error("No target person defined for type = #{@target_entity_type} - notes not migrated")
       return
@@ -888,6 +882,16 @@ class MigrationService
     @current[:target_entity] = target_entities[0]
     @current[:target_entity] ||= {}
     @current[:target_id] = @current[:target_entity][:id]
+  end
+
+  def get_corporation_contact(corp_name)
+    return nil if corp_name.blank?
+    contact_obj = map_assoc(:client_contact, 'name',"Generic #{corp_name}")
+    if contact_obj.nil? || contact_obj[:id].blank?
+      log_error("Missing generic contact for corp #{corp_name} - applying default")
+      contact_obj = map_assoc(:client_contact,'customInt1',MappingService::DEFAULT_CONTACT)
+    end
+    contact_obj
   end
 
   def update_target(update_attribs)
