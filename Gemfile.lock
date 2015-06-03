@@ -1,7 +1,7 @@
 GIT
   remote: https://github.com/draknor/bullhorn-rest.git
-  revision: f7f3ac2ca00d67381cdac661a67cf94958b52ceb
-  branch: get_associations
+  revision: 4a2b64aa166f1ac97835ae9e63ee916bf10570c6
+  branch: fix_query_tasks
   specs:
     bullhorn-rest (0.0.1.14)
       activesupport
@@ -10,9 +10,9 @@ GIT
 
 GIT
   remote: https://github.com/draknor/highrise.git
-  revision: aac865f71096aafab9965f2de3550872c70e9b0b
-  ref: aac865f
-  branch: add_since_param
+  revision: 2b0c7dd4caacc477594391f11d20b99170e05b08
+  ref: 2b0c7dd
+  branch: get_all_tasks
   specs:
     highrise (3.2.1)
       activeresource (>= 3.2.13)

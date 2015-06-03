@@ -161,7 +161,7 @@ class MigrationService
   end
 
   def get_target_type(source_type = @source_entity_type, source_entity = @current[:source_entity], skip_error_logs = false)
-    # puts "[debug] #get_target_type: source_type = #{source_type} (#{source_type.class})"
+    puts "[debug] #get_target_type: source_type = #{source_type} (#{source_type.class})"
     val = nil
     if source_type.to_sym == :person
       data_custom = source_entity.respond_to?(:subject_datas) ? source_entity.subject_datas.map {|n| n.attributes} : []
@@ -616,7 +616,7 @@ class MigrationService
   end
 
   def migrate_note(note)
-    puts "[debug] migrate_note: @current[:source_id]=#{@current[:source_id]} | note=#{note.inspect} "
+    puts "[debug] migrate_note: @current[:source_id]=#{@current[:source_id]} | note=#{note.id}, #{note.created_at} "
     # only process notes where this entity is the subject
     return unless note.subject_id.to_s == @current[:source_id].to_s
 
@@ -645,6 +645,7 @@ class MigrationService
   end
 
   def migrate_email(email)
+    puts "[debug] migrate_email: @current[:source_id]=#{@current[:source_id]} | email=#{email.id}, #{email.created_at} "
     return unless email.subject_id.to_s == @current[:source_id].to_s  # only process emails where this entity is the subject
 
     target_note = find_target_note(:email,email.id)
@@ -794,6 +795,8 @@ class MigrationService
 
   def migrate_task
     puts "[debug] #migrate_task id=#{@current[:source_id]}"
+    return unless @current[:source_entity].done_at.nil?
+    return unless @current[:source_entity].owner_id == 872193  # DEBUG TODO Flan only
 
     get_target_entity
     return if @current[:target_entity].nil?  # failed
@@ -809,11 +812,25 @@ class MigrationService
         return
       end
 
+      if source_entity.alert_at.nil? || source_entity.alert_at < Time.now
+        alert_minutes = 0
+      elsif source_entity.due_at.nil? || source_entity.due_at < Time.now
+        alert_minutes = 0
+      elsif source_entity.due_at < source_entity.alert_at
+        alert_minutes = 0
+      else
+        alert_minutes = (source_entity.due_at.to_i - source_entity.alert_at.to_i)/60
+      end
+
       target_update.merge!({
          dateAdded: format_timestamp(source_entity.created_at),
+         dateBegin: format_timestamp(source_entity.due_at),
          dateEnd: format_timestamp(source_entity.due_at),
-         description: nil,
-         notificationMinutes: (source_entity.due_at.to_i - source_entity.alert_at.to_i)/60,
+         description: '',
+         isCompleted: false,
+         isDeleted: false,
+         isPrivate: false,
+         notificationMinutes: alert_minutes,
          owner: owner_obj,
          subject: format_str(source_entity.body,100),
          taskUUID: @current[:source_id],
@@ -824,12 +841,12 @@ class MigrationService
       case source_entity.subject_type.to_s.downcase
         when 'party'
           source_record = @source.get(:person,source_entity.subject_id)
-          if source_record.nil?  # could be company?
+          if source_record.nil?  || source_record.class == ServiceError # lookup failed - could be company?
             source_record = @source.get(:company,source_entity.subject_id)
             client_contact_obj = get_corporation_contact(source_record.name) unless source_record.nil? || source_record.empty?
             ref_obj[:clientContact] = client_contact_obj unless client_contact_obj.nil? || client_contact_obj.empty?
           else
-            target_type = get_target_type(:person,source_record)
+            target_type = get_target_type(:person,source_record,true)
             record = map_assoc(target_type,'customInt1',source_entity.subject_id)
             key = target_type == :candidate ? :candidate : :clientContact
             ref_obj[key] = record unless record.nil? || record.empty?
@@ -847,7 +864,8 @@ class MigrationService
   def get_target_entity
     puts "[debug] #get_target_entity id=#{@current[:source_id]} => #{@target_entity_type}"
     # return nil if @current[:source_id].nil?
-    target_entities = search_assoc(@target_entity_type,'customInt1',@current[:source_id])
+    search_field = @target_entity_type.to_sym == :task ? 'taskUUID' : 'customInt1'
+    target_entities = search_assoc(@target_entity_type,search_field,@current[:source_id])
     puts "[debug] #get_target_entity: results = #{target_entities.inspect}"
     if target_entities.class == ServiceError || target_entities[0].class == ServiceError
       log_error("Error retrieving target: #{target_entities[0].message}")

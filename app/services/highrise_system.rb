@@ -34,7 +34,12 @@ class HighriseSystem < BaseSystem
     params[:since] = timestamp.utc.strftime('%Y%m%d%H%M%S') unless timestamp.nil?
     params[:n] = offset if offset>0
 
-    results = Highrise.const_get(mod).find(:all, params: params )
+    # only get results for the first 'page' of tasks
+    if mod == 'Task'
+      results = Highrise.const_get(mod).all if offset == 0
+    else
+      results = Highrise.const_get(mod).all( params: params )
+    end
     return [] if results.nil?
     results
   end
