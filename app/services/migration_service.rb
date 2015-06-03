@@ -573,7 +573,9 @@ class MigrationService
       @target_reference = {jobOrder: {id: @current[:target_id]}}
       @target_person = {id: @current[:target_entity][:clientContact][:id], _subtype: 'ClientContact'}
     elsif @target_entity_type == :client_corporation
-      @target_person = get_corporation_contact(@current[:target_entity][:name])
+      client_obj = get_corporation_contact(@current[:target_entity][:name])
+      @target_reference = {clientContacts: client_obj}
+      @target_person = client_obj
     else
       log_error("No target person defined for type = #{@target_entity_type} - notes not migrated")
       return
@@ -734,7 +736,7 @@ class MigrationService
       elsif result[:changeType]
         @notes_count[:success] = @notes_count[:success] + 1
         @comments_count[:success] = @comments_count[:success] + @comments_count[:current_note]
-        # create NoteEntity
+        # create NoteEntity TODO - don't duplicate existing note entries (!)
         unless note_id.nil?
           @new_notes << note_id
           note_refs.each do |ref_type, ref_obj|
