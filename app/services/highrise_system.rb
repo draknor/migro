@@ -15,7 +15,7 @@ class HighriseSystem < BaseSystem
     JSON.parse Highrise::Account.me.to_json
   end
 
-  def self.search(entity, query)
+  def self.search(entity, query,options={})
     puts "[debug] HighriseSystem#search: #{entity}, #{query}"
     if query == query.to_i.to_s  # assume query = entity_id if query is an integer
       return [get(entity,query)]

@@ -124,4 +124,9 @@ class BullhornSystem < BaseSystem
 
     resp
   end
+
+  def self.get_association(entity,id,assoc_entity,options = {})
+    resp = @client.send "get_#{entity}_associations", id, assoc_entity.to_s.pluralize, options
+    resp.data unless resp.data.nil?
+  end
 end

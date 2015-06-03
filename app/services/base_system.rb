@@ -13,7 +13,7 @@ class BaseSystem
     # Should return JSON object
   end
 
-  def self.search(entity, query)
+  def self.search(entity, query,options={})
   end
 
   def self.retrieve(entity, timestamp, page)

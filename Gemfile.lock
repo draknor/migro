@@ -10,8 +10,8 @@ GIT
 
 GIT
   remote: https://github.com/draknor/highrise.git
-  revision: 48c6e1ef890e6da73a52edcca8c455b3f991f440
-  branch: add_search_term
+  revision: 205416741ed6f2fb9654883c23effb26ece35b39
+  branch: add_since_param
   specs:
     highrise (3.2.1)
       activeresource (>= 3.2.13)
