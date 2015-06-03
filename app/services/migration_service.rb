@@ -245,9 +245,9 @@ class MigrationService
       other_phone = array_search(data_contact['phone_numbers'], options_home.merge({value_attrib: :number, search_value: 'Other'})) if other_phone.blank?
 
       target_update.merge!({
-         firstName: source_entity.first_name,
-         lastName: source_entity.last_name,
-         name: source_entity.first_name.to_s + ' ' + source_entity.last_name.to_s,
+         firstName: truncate_name(source_entity.first_name),
+         lastName: truncate_name(source_entity.last_name),
+         name: truncate_name(source_entity.first_name) + ' ' + truncate_name(source_entity.last_name),
          customInt1: @current[:source_id],
          dateAdded: format_timestamp(source_entity.created_at),
          status: 'HR Migration',
@@ -824,37 +824,20 @@ class MigrationService
           source_record = @source.get(:person,source_entity.subject_id)
           if source_record.nil?  # could be company?
             source_record = @source.get(:company,source_entity.subject_id)
-            #TODO Need to get default generic contact for companies
+            client_contact_obj = get_corporation_contact(source_record.name) unless source_record.nil? || source_record.empty?
+            ref_obj[:clientContact] = client_contact_obj unless client_contact_obj.nil? || client_contact_obj.empty?
           else
-          end
-
-          target_type = get_target_type(:person,source_record)
-          records = search_assoc(target_type,'customInt1',source_entity.subject_id)
-          if records.class == ServiceError || records[0].class == ServiceError
-            log_error("Error retrieving task #{target_type}: #{records[0].message}")
-          elsif records.count == 0
-            log_error("No task target #{target_type} found for source ID #{source_entity.subject_id} - task not attached")
-          elsif records.count > 1
-            log_error("Multiple task target #{target_type}'s found for source ID #{source_entity.subject_id} - task not attached")
-          else
+            target_type = get_target_type(:person,source_record)
+            record = map_assoc(target_type,'customInt1',source_entity.subject_id)
             key = target_type == :candidate ? :candidate : :clientContact
-            ref_obj[key] = { id: records[0].id}
+            ref_obj[key] = record unless record.nil? || record.empty?
           end
         when 'deal'
-          records = search_assoc(:job_order,'customInt1',source_entity.subject_id)
-          if records.class == ServiceError || records[0].class == ServiceError
-            log_error("Error retrieving task #{target_type}: #{records[0].message}")
-          elsif records.count == 0
-            log_error("No task target #{target_type} found for source ID #{source_entity.subject_id} - task not attached")
-          elsif records.count > 1
-            log_error("Multiple task target #{target_type}'s found for source ID #{source_entity.subject_id} - task not attached")
-          else
-            ref_obj[:jobOrder] = { id: records[0].id }
-          end
+          record = map_assoc(:job_order,'customInt1',source_entity.subject_id)
+          ref_obj[:jobOrder] = record unless record.nil? || record.empty?
       end
 
       target_update.merge!(ref_obj) unless ref_obj.empty?
-
       update_target(target_update)
     end
   end
@@ -886,7 +869,7 @@ class MigrationService
 
   def get_corporation_contact(corp_name)
     return nil if corp_name.blank?
-    contact_obj = map_assoc(:client_contact, 'name',"Generic #{corp_name}")
+    contact_obj = map_assoc(:client_contact, 'name',"Generic #{truncate_name(corp_name)}")
     if contact_obj.nil? || contact_obj[:id].blank?
       log_error("Missing generic contact for corp #{corp_name} - applying default")
       contact_obj = map_assoc(:client_contact,'customInt1',MappingService::DEFAULT_CONTACT)
@@ -979,6 +962,9 @@ class MigrationService
     @run.migration_logs.create(log_type: MigrationLog.log_types[:mapped], source_id: source_id, source_before: v[:source_entity_type].to_json, target_id: v[:target_entity_id], target_before: v[:target_before].to_json, target_after: v[:target_after].to_json, message: v[:message])
   end
 
+  def truncate_name(val)
+    val.blank? ? '' : val.truncate(val,50,omission:'')
+  end
   def format_phone(val)
     val.nil? ? nil : number_to_phone(val.tr('()-.– ',''))
   end
@@ -1027,7 +1013,6 @@ class MigrationService
     end
     val
   end
-
 
   def map_value_array(field,array)
     return nil if array.nil?
