@@ -637,7 +637,7 @@ class MigrationService
 
     target_update = {}
     target_update = {
-        action: 'HR Migration',
+        action: 'Highrise Note',
         comments: note_txt.join("\r\n"),
         dateAdded: format_timestamp(note.created_at),
         personReference: @target_person
@@ -666,7 +666,7 @@ class MigrationService
 
     target_update = {}
     target_update = {
-        action: 'HR Migration',
+        action: 'Highrise Email',
         comments: note_txt.join("\r\n"),
         dateAdded: format_timestamp(email.created_at),
         personReference: @target_person

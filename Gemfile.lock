@@ -10,7 +10,8 @@ GIT
 
 GIT
   remote: https://github.com/draknor/highrise.git
-  revision: 205416741ed6f2fb9654883c23effb26ece35b39
+  revision: aac865f71096aafab9965f2de3550872c70e9b0b
+  ref: aac865f
   branch: add_since_param
   specs:
     highrise (3.2.1)
