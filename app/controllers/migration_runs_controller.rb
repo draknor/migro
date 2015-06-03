@@ -96,6 +96,6 @@ class MigrationRunsController < ApplicationController
 
     # Only allow a trusted parameter "white list" through.
     def migration_run_params
-      params.require(:migration_run).permit(:name, :source_system_id, :destination_system_id, :user_id, :entity_type, :all_records, :record_list, :phase, :start_page)
+      params.require(:migration_run).permit(:name, :source_system_id, :destination_system_id, :user_id, :entity_type, :all_records, :record_list, :phase, :start_page, :from_date, :through_date)
     end
 end

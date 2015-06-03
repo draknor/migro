@@ -23,7 +23,10 @@
             #pause[style='display:none']
               = image_tag 'pause.png', size: '32x32'
           td = @migration_run.entity_type
-          td = @migration_run.phase
+          td
+            = @migration_run.phase
+            - if @migration_run.load_history?
+              = " (#{@migration_run.from_date.to_s} - #{@migration_run.through_date.to_s})"
           td = @migration_run.source_system.name unless @migration_run.source_system.nil?
           td = @migration_run.destination_system.name unless @migration_run.destination_system.nil?
           td = format_time(@migration_run.started_at)

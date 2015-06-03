@@ -57,6 +57,18 @@
       .small-10.columns
         = f.input :record_list, label: false
 
+    .field.row
+      .small-2.columns.text-right
+        = f.label :from_date
+      .small-10.columns
+        = f.input :from_date, label: false, include_blank: true
+
+    .field.row
+      .small-2.columns.text-right
+        = f.label :through_date
+      .small-10.columns
+        = f.input :through_date, label: false, include_blank: true
+
   .form-actions
     .field.row.text-center
       = f.button :submit, button_description, class: 'button small radius'
