@@ -257,6 +257,23 @@ class MappingService
                                 'fixed' => "Fixed Bid"
                             }[value] unless value.blank?
                         end
+                      when :task
+                        case field.to_sym
+                          when :type
+                            value.blank? ? 'Other' : {
+                                4778323 => 'Account Management',
+                                4297327 => 'Follow-up Call',
+                                4636104 => 'CHA',
+                                4311301 => 'Consultant Placement',
+                                4297328 => 'Other',
+                                4297329 => 'Send Email',
+                                4297330 => 'Other',
+                                4297331 => 'Other',
+                                4297333 => 'Meeting',
+                                4628293 => 'Recruitment',
+                                4785053 => 'Sales'
+                            }[value]
+                        end
                     end
       end
 

@@ -21,7 +21,8 @@ class MigrationService
         :bullhorn => {
             :company => :client_corporation,
             :person => [:candidate, :client_contact],
-            :deal => :job_order
+            :deal => :job_order,
+            :task => :task
         }
       }
     }
@@ -763,7 +764,6 @@ class MigrationService
     end
   end
 
-
   def note_tag(note_type,note_id)
     "[highrise.#{note_type.to_s.downcase}.id=#{note_id}]"
   end
@@ -794,6 +794,75 @@ class MigrationService
       end
     end
     note
+  end
+
+  def migrate_task
+    puts "[debug] #migrate_task id=#{@current[:source_id]}"
+
+    get_target_entity
+    return if @current[:target_entity].nil?  # failed
+    source_entity = @current[:source_entity]
+
+    target_update = {}
+
+    if @run.test_only? || @run.create_shell?
+      owner_name = get_source_name(:user, source_entity.owner_id)
+      owner_obj = map_assoc(:corporate_user, 'name', owner_name)
+      if owner_obj[:id].blank?
+        log_error("Missing Owner=#{owner_name} (#{source_entity.owner_id}) - task not migrated")
+        return
+      end
+
+      target_update.merge!({
+         dateAdded: format_timestamp(source_entity.created_at),
+         dateEnd: format_timestamp(source_entity.due_at),
+         description: nil,
+         notificationMinutes: (source_entity.due_at.to_i - source_entity.alert_at.to_i)/60,
+         owner: owner_obj,
+         subject: format_str(source_entity.body,100),
+         taskUUID: @current[:source_id],
+         type: map_value(:type,source_entity.category_id)
+      })
+
+      ref_obj = {}
+      case source_entity.subject_type.to_s.downcase
+        when 'party'
+          source_record = @source.get(:person,source_entity.subject_id)
+          if source_record.nil?  # could be company?
+            source_record = @source.get(:company,source_entity.subject_id)
+            #TODO Need to get default generic contact for companies
+          else
+          end
+
+          target_type = get_target_type(:person,source_record)
+          records = search_assoc(target_type,'customInt1',source_entity.subject_id)
+          if records.class == ServiceError || records[0].class == ServiceError
+            log_error("Error retrieving task #{target_type}: #{records[0].message}")
+          elsif records.count == 0
+            log_error("No task target #{target_type} found for source ID #{source_entity.subject_id} - task not attached")
+          elsif records.count > 1
+            log_error("Multiple task target #{target_type}'s found for source ID #{source_entity.subject_id} - task not attached")
+          else
+            key = target_type == :candidate ? :candidate : :clientContact
+            ref_obj[key] = { id: records[0].id}
+          end
+        when 'deal'
+          records = search_assoc(:job_order,'customInt1',source_entity.subject_id)
+          if records.class == ServiceError || records[0].class == ServiceError
+            log_error("Error retrieving task #{target_type}: #{records[0].message}")
+          elsif records.count == 0
+            log_error("No task target #{target_type} found for source ID #{source_entity.subject_id} - task not attached")
+          elsif records.count > 1
+            log_error("Multiple task target #{target_type}'s found for source ID #{source_entity.subject_id} - task not attached")
+          else
+            ref_obj[:jobOrder] = { id: records[0].id }
+          end
+      end
+
+      target_update.merge!(ref_obj) unless ref_obj.empty?
+
+      update_target(target_update)
+    end
   end
 
   def get_target_entity
