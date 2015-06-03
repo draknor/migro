@@ -590,7 +590,6 @@ class MigrationService
     end
 
     @notes_count = {success: 0, failed: 0}
-    @emails_count = {success: 0, failed: 0}
     @comments_count = {success: 0, failed:0, current_note: 0}
     @new_notes = []
 
@@ -614,7 +613,7 @@ class MigrationService
       log_error("Unknown run phase in #migrate_history: #{@run.phase}")
     end
 
-    msg = "Success: #{@notes_count[:success]} notes, #{@emails_count[:success]} emails, #{@comments_count[:success]} comments / Failed: #{@notes_count[:failed]} notes, #{@emails_count[:failed]} emails"
+    msg = "Success: #{@notes_count[:success]} notes/emails, #{@comments_count[:success]} comments / Failed: #{@notes_count[:failed]} notes/emails"
     log_migration({ source_entity_type: source_entity, target_entity_id: @current[:target_id], target_before: {}, target_after: @new_notes, message: msg})
 
   end
