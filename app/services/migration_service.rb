@@ -841,51 +841,49 @@ class MigrationService
 
     target_update = {}
 
-    if @run.test_only? || @run.create_shell?
-      owner_name = get_source_name(:user, source_entity.owner_id)
-      owner_obj = map_assoc(:corporate_user, 'name', owner_name)
-      if owner_obj[:id].blank?
-        log_error("Missing Owner=#{owner_name} (#{source_entity.owner_id}) - task not migrated")
-        return
-      end
-
-      target_update.merge!({
-         dateAdded: format_timestamp(source_entity.created_at),
-         dateBegin: format_timestamp(source_entity.due_at),
-         dateEnd: format_timestamp(source_entity.due_at),
-         description: '',
-         isCompleted: false,
-         isDeleted: false,
-         isPrivate: false,
-         notificationMinutes: 30,
-         owner: owner_obj,
-         subject: format_str(source_entity.body,100),
-         taskUUID: @current[:source_id],
-         type: map_value(:type,source_entity.category_id)
-      })
-
-      ref_obj = {}
-      case source_entity.subject_type.to_s.downcase
-        when 'party'
-          source_record = @source.get(:person,source_entity.subject_id)
-          if source_record.nil?  || source_record.class == ServiceError # lookup failed - could be company?
-            source_record = @source.get(:company,source_entity.subject_id)
-            client_contact_obj = get_corporation_contact(source_record.name) unless source_record.nil? || source_record.empty?
-            ref_obj[:clientContact] = client_contact_obj unless client_contact_obj.nil? || client_contact_obj.empty?
-          else
-            target_type = get_target_type(:person,source_record,true)
-            record = map_assoc(target_type,'customInt1',source_entity.subject_id)
-            key = target_type == :candidate ? :candidate : :clientContact
-            ref_obj[key] = record unless record.nil? || record.empty?
-          end
-        when 'deal'
-          record = map_assoc(:job_order,'customInt1',source_entity.subject_id)
-          ref_obj[:jobOrder] = record unless record.nil? || record.empty?
-      end
-
-      target_update.merge!(ref_obj) unless ref_obj.empty?
-      update_target(target_update)
+    owner_name = get_source_name(:user, source_entity.owner_id)
+    owner_obj = map_assoc(:corporate_user, 'name', owner_name)
+    if owner_obj[:id].blank?
+      log_error("Missing Owner=#{owner_name} (#{source_entity.owner_id}) - task not migrated")
+      return
     end
+
+    target_update.merge!({
+       dateAdded: format_timestamp(source_entity.created_at),
+       dateBegin: format_timestamp(source_entity.due_at),
+       dateEnd: format_timestamp(source_entity.due_at),
+       description: '',
+       isCompleted: false,
+       isDeleted: false,
+       isPrivate: false,
+       notificationMinutes: 30,
+       owner: owner_obj,
+       subject: format_str(source_entity.body,100),
+       taskUUID: @current[:source_id],
+       type: map_value(:type,source_entity.category_id)
+    })
+
+    ref_obj = {}
+    case source_entity.subject_type.to_s.downcase
+      when 'party'
+        source_record = @source.get(:person,source_entity.subject_id)
+        if source_record.nil?  || source_record.class == ServiceError # lookup failed - could be company?
+          source_record = @source.get(:company,source_entity.subject_id)
+          client_contact_obj = get_corporation_contact(source_record.name) unless source_record.nil? || source_record.empty?
+          ref_obj[:clientContact] = client_contact_obj unless client_contact_obj.nil? || client_contact_obj.empty?
+        else
+          target_type = get_target_type(:person,source_record,true)
+          record = map_assoc(target_type,'customInt1',source_entity.subject_id)
+          key = target_type == :candidate ? :candidate : :clientContact
+          ref_obj[key] = record unless record.nil? || record.empty?
+        end
+      when 'deal'
+        record = map_assoc(:job_order,'customInt1',source_entity.subject_id)
+        ref_obj[:jobOrder] = record unless record.nil? || record.empty?
+    end
+
+    target_update.merge!(ref_obj) unless ref_obj.empty?
+    update_target(target_update)
   end
 
   def get_target_entity
@@ -899,8 +897,8 @@ class MigrationService
       return nil
     end
 
-    if target_entities.count == 0 && !(@run.create_shell? || @run.test_only?)
-      log_error("No target record found with source ID #{@current[:source_id]} and phase is NOT 'create_shell'")
+    if target_entities.count == 0 && !(@run.create_record? || @run.test_only?)
+      log_error("No target record found with source ID #{@current[:source_id]} and phase is NOT 'create_record'")
       return nil
     end
 
