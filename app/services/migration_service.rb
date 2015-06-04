@@ -78,10 +78,12 @@ class MigrationService
       else
         begin
           @current[:source_entity] = entity
-          if @run.load_history? || @run.update_history?
-            migrate_history
-          else
+          if @run.test_only? || @run.create_record? || @run.catchup_all?
             self.send "migrate_#{@source_entity_type}"
+          end
+
+          if @run.load_history? || @run.update_history? || @run.catchup_all?
+            migrate_history
           end
         rescue => e
           log_exception(e)
@@ -95,17 +97,20 @@ class MigrationService
     if @run.all_records
       page = @run.start_page.nil? ? 1 : @run.start_page
       max = (@run.max_records == -1) ? 0 : @run.max_records
+      from_timestamp = @run.from_date.nil? ? nil : @run.from_date.to_time(:local).utc
       begin
-        entities = @source.retrieve(@source_entity_type,nil,page)
+        entities = @source.retrieve(@source_entity_type,from_timestamp,page)
         max = max + entities.count
         @run.update(max_records: max)
         entities.each do |entity|
           begin
             @current = { source_id: entity.id, source_entity: entity }
-            if @run.load_history? || @run.update_history?
-              migrate_history
-            else
+            if @run.test_only? || @run.create_record? || @run.catchup_all?
               self.send "migrate_#{@source_entity_type}"
+            end
+
+            if @run.load_history? || @run.update_history? || @run.catchup_all?
+              migrate_history
             end
           rescue => e
             log_exception(e)
@@ -215,65 +220,63 @@ class MigrationService
     data_contact = source_entity.respond_to?(:contact_data) ? source_entity.contact_data.attributes : []
     data_custom = source_entity.respond_to?(:subject_datas) ? source_entity.subject_datas.map {|n| n.attributes} : []
 
-    if @run.test_only? || @run.create_shell?
-      if source_entity.company_id.blank?
-        log_error("No company in Highrise - applying default")
-        client_corp_obj = map_assoc(:client_corporation, 'customInt1', MappingService::DEFAULT_COMPANY)
-      else
-        client_corp_obj = map_assoc(:client_corporation, 'customInt1', source_entity.company_id)
-      end
-
-      if client_corp_obj[:id].blank?
-        log_error("Missing Company=#{source_entity.company_id} - not migrating Contact")
-        return
-      end
-
-      contact_name = map_assoc(:client_corporation, 'customInt1', source_entity.company_id, :customText3)[:customText3]
-      contact_obj = map_assoc(:corporate_user, 'name', contact_name)
-
-      # Email hierarchy: Use 'work', 'home', 'other' - as found in Highrise, up to 3
-
-      emails = array_search_multi(data_contact['email_addresses'], options_work.merge({value_attrib: :address, description: 'work email'}))
-      emails = emails + array_search_multi(data_contact['email_addresses'], options_home.merge({value_attrib: :address, description: 'home email'}))
-      emails = emails + array_search_multi(data_contact['email_addresses'], options_home.merge({value_attrib: :address, search_value: 'Other', description: 'other email'}))
-      emails[0] = 'unknown' if emails.count < 1
-      if emails.count > 3
-        log_error("More than 3 email addresses")
-      end
-
-      other_phone = array_search(data_contact['phone_numbers'], options_home.merge({value_attrib: :number}))
-      other_phone = array_search(data_contact['phone_numbers'], options_home.merge({value_attrib: :number, search_value: 'Other'})) if other_phone.blank?
-
-      target_update.merge!({
-         firstName: truncate_name(source_entity.first_name),
-         lastName: truncate_name(source_entity.last_name),
-         name: truncate_name(source_entity.first_name) + ' ' + truncate_name(source_entity.last_name),
-         customInt1: @current[:source_id],
-         dateAdded: format_timestamp(source_entity.created_at),
-         status: 'HR Migration',
-         occupation: format_str(source_entity.title,50),
-         mobile: format_phone(array_search(data_contact['phone_numbers'], options_work.merge({value_attrib: :number, search_value: 'Mobile'}))),
-         phone: format_phone(array_search(data_contact['phone_numbers'], options_work.merge({value_attrib: :number}))),
-         phone2: format_phone(other_phone),
-         fax: format_phone(array_search(data_contact['phone_numbers'], options_work.merge({value_attrib: :number, search_value: 'Fax'}))),
-         email: emails[0],
-         email2: emails.count > 1 ? emails[1] : '',
-         email3: emails.count > 2 ? emails[2] : '',
-         address: {
-             address1:  format_address( array_search(data_contact['addresses'], options_work.merge({value_attrib: :street}))),
-             city:                      array_search(data_contact['addresses'], options_work.merge({value_attrib: :city})),
-             state:     map_value(:state, array_search(data_contact['addresses'], options_work.merge({value_attrib: :state})), :address),
-             zip:                       array_search(data_contact['addresses'], options_work.merge({value_attrib: :zip})),
-             countryID: map_value(:countryID, array_search(data_contact['addresses'], options_work.merge({value_attrib: :country})), :address)
-         },
-         clientCorporation: client_corp_obj,
-         customText1: source_entity.linkedin_url,
-         customTextBlock1: format_textbox(source_entity.background)
-      })
-      target_update.merge!({owner: contact_obj}) unless contact_obj.empty?
-
-      update_target(target_update)
+    if source_entity.company_id.blank?
+      log_error("No company in Highrise - applying default")
+      client_corp_obj = map_assoc(:client_corporation, 'customInt1', MappingService::DEFAULT_COMPANY)
+    else
+      client_corp_obj = map_assoc(:client_corporation, 'customInt1', source_entity.company_id)
     end
+
+    if client_corp_obj[:id].blank?
+      log_error("Missing Company=#{source_entity.company_id} - not migrating Contact")
+      return
+    end
+
+    contact_name = map_assoc(:client_corporation, 'customInt1', source_entity.company_id, :customText3)[:customText3]
+    contact_obj = map_assoc(:corporate_user, 'name', contact_name)
+
+    # Email hierarchy: Use 'work', 'home', 'other' - as found in Highrise, up to 3
+
+    emails = array_search_multi(data_contact['email_addresses'], options_work.merge({value_attrib: :address, description: 'work email'}))
+    emails = emails + array_search_multi(data_contact['email_addresses'], options_home.merge({value_attrib: :address, description: 'home email'}))
+    emails = emails + array_search_multi(data_contact['email_addresses'], options_home.merge({value_attrib: :address, search_value: 'Other', description: 'other email'}))
+    emails[0] = 'unknown' if emails.count < 1
+    if emails.count > 3
+      log_error("More than 3 email addresses")
+    end
+
+    other_phone = array_search(data_contact['phone_numbers'], options_home.merge({value_attrib: :number}))
+    other_phone = array_search(data_contact['phone_numbers'], options_home.merge({value_attrib: :number, search_value: 'Other'})) if other_phone.blank?
+
+    target_update.merge!({
+       firstName: truncate_name(source_entity.first_name),
+       lastName: truncate_name(source_entity.last_name),
+       name: truncate_name(source_entity.first_name) + ' ' + truncate_name(source_entity.last_name),
+       customInt1: @current[:source_id],
+       dateAdded: format_timestamp(source_entity.created_at),
+       status: 'HR Migration',
+       occupation: format_str(source_entity.title,50),
+       mobile: format_phone(array_search(data_contact['phone_numbers'], options_work.merge({value_attrib: :number, search_value: 'Mobile'}))),
+       phone: format_phone(array_search(data_contact['phone_numbers'], options_work.merge({value_attrib: :number}))),
+       phone2: format_phone(other_phone),
+       fax: format_phone(array_search(data_contact['phone_numbers'], options_work.merge({value_attrib: :number, search_value: 'Fax'}))),
+       email: emails[0],
+       email2: emails.count > 1 ? emails[1] : '',
+       email3: emails.count > 2 ? emails[2] : '',
+       address: {
+           address1:  format_address( array_search(data_contact['addresses'], options_work.merge({value_attrib: :street}))),
+           city:                      array_search(data_contact['addresses'], options_work.merge({value_attrib: :city})),
+           state:     map_value(:state, array_search(data_contact['addresses'], options_work.merge({value_attrib: :state})), :address),
+           zip:                       array_search(data_contact['addresses'], options_work.merge({value_attrib: :zip})),
+           countryID: map_value(:countryID, array_search(data_contact['addresses'], options_work.merge({value_attrib: :country})), :address)
+       },
+       clientCorporation: client_corp_obj,
+       customText1: source_entity.linkedin_url,
+       customTextBlock1: format_textbox(source_entity.background)
+    })
+    target_update.merge!({owner: contact_obj}) unless contact_obj.empty?
+
+    update_target(target_update)
 
   end
 
@@ -288,140 +291,136 @@ class MigrationService
     data_contact = source_entity.respond_to?(:contact_data) ? source_entity.contact_data.attributes : []
     data_custom = source_entity.respond_to?(:subject_datas) ? source_entity.subject_datas.map {|n| n.attributes} : []
 
-    if @run.test_only? || @run.create_shell?
-      emails = array_search_multi(data_contact['email_addresses'], options_work.merge({value_attrib: :address, description: 'work email'}))
-      emails = emails + array_search_multi(data_contact['email_addresses'], options_home.merge({value_attrib: :address, description: 'home email'}))
-      emails = emails + array_search_multi(data_contact['email_addresses'], options_home.merge({value_attrib: :address, search_value: 'Other', description: 'other email'}))
-      if emails.count > 3
-        log_error("More than 3 email addresses")
-      end
-
-      referred_by_name = array_search(data_custom, options_custom.merge({search_value: 'Rec: Referred By'}))
-      referred_by_assoc = {}
-      unless referred_by_name.blank?
-        if referred_by_assoc[:id].blank?
-          referred_by_assoc = map_assoc(:corporate_user, 'name', referred_by_name)
-          referred_by_assoc[:_subType] = 'CorporateUser' unless referred_by_assoc[:id].blank?
-        end
-
-        if referred_by_assoc[:id].blank?
-          referred_by_assoc = map_assoc(:candidate, 'name', referred_by_name)
-          referred_by_assoc[:_subType] = 'Candidate' unless referred_by_assoc[:id].blank?
-        end
-
-        if referred_by_assoc[:id].blank?
-          referred_by_assoc = map_assoc(:client_contact, 'name', referred_by_name)
-          referred_by_assoc[:_subType] = 'ClientContact' unless referred_by_assoc[:id].blank?
-        end
-      end
-      referred_by_name = nil unless referred_by_assoc[:id].blank?
-
-      current_blueleaf = map_value(:customText15, array_search(data_custom,options_custom.merge({search_value: 'HR: Current BlueLeaf?'})))
-      blueleaf_employment = array_search(data_custom,options_custom.merge({search_value: 'HR: Employment Model (W2/1099 (#%/#%))'}))
-      current_employment_mapped = map_value(:customText16, blueleaf_employment)
-
-      if current_blueleaf.blank?
-        current_employment_model = nil
-        current_employment_txt = nil
-        employment_pref = blueleaf_employment
-      else
-        current_employment_model = current_employment_mapped
-        current_employment_txt = current_employment_mapped.blank? ? blueleaf_employment : nil
-        employment_pref = nil
-      end
-
-      vetted_notes = []
-      vetted_notes << array_search(data_custom,options_custom.merge({search_value: 'Rec: Vetted by #1'}))
-      vetted_notes << array_search(data_custom,options_custom.merge({search_value: 'Rec: Vetted by #2'}))
-      vetted_notes << array_search(data_custom,options_custom.merge({search_value: 'Rec: Vetted by #3'}))
-      comments = []
-      rec_note_text = array_search(data_custom,options_custom.merge({search_value: 'Rec: Recruitment/Placement Notes'}))
-      quality_text = array_search(data_custom,options_custom.merge({search_value: 'Rec: BlueTree Quality R/Y/G Comments'}))
-      comments << "HR Rec/Placement Note: " + rec_note_text unless rec_note_text.blank?
-      comments << '' unless rec_note_text.blank? || quality_text.blank?
-      comments << "HR Quality Comment: " + quality_text unless quality_text.blank?
-      owner = map_assoc(:corporate_user, :name, array_search(data_custom, options_custom.merge({search_value: 'Rec: Primary Contact / Advocate / Manager'})))
-
-      other_phone = array_search(data_contact['phone_numbers'], options_home.merge({value_attrib: :number}))
-      other_phone = array_search(data_contact['phone_numbers'], options_home.merge({value_attrib: :number, search_value: 'Other'})) if other_phone.blank?
-
-      employ_pref = []
-      employ_pref << map_value(:employmentPreference, array_search(data_custom,options_custom.merge({search_value: 'Rec: FTE preferences (Local only; Open to relocation; Not interested)'})))
-      employ_pref << map_value(:employmentPreference, array_search(data_custom,options_custom.merge({search_value: 'Rec: Interested in salary?'})))
-
-      # dateAdded: format_timestamp(source_entity.created_at),
-      target_update.merge!({
-          firstName: source_entity.first_name,
-          lastName: source_entity.last_name,
-          name: source_entity.first_name.to_s + ' ' + source_entity.last_name.to_s,
-          customInt1: @current[:source_id],
-          companyName: source_entity.company_name,
-          companyURL: source_entity.linkedin_url,
-          occupation: format_str(source_entity.title,50),
-          status: 'HR Migration',
-          email: emails[0],
-          email2: emails.count > 1 ? emails[1] : '',
-          email3: emails.count > 2 ? emails[2] : '',
-          mobile: format_phone(array_search(data_contact['phone_numbers'], options_work.merge({value_attrib: :number, search_value: 'Mobile'}))),
-          workPhone: format_phone(array_search(data_contact['phone_numbers'], options_work.merge({value_attrib: :number}))),
-          phone2: format_phone(other_phone),
-          address: {
-              address1:  format_address( array_search(data_contact['addresses'], options_home.merge({value_attrib: :street}))),
-              city:                      array_search(data_contact['addresses'], options_home.merge({value_attrib: :city})),
-              state:     map_value(:state, array_search(data_contact['addresses'], options_home.merge({value_attrib: :state})), :address),
-              zip:                       array_search(data_contact['addresses'], options_home.merge({value_attrib: :zip})),
-              countryID: map_value(:countryID, array_search(data_contact['addresses'], options_home.merge({value_attrib: :country})), :address)
-          },
-          secondaryAddress: {
-              address1:  format_address( array_search(data_contact['addresses'], options_work.merge({value_attrib: :street}))),
-              city:                      array_search(data_contact['addresses'], options_work.merge({value_attrib: :city})),
-              state:     map_value(:state, array_search(data_contact['addresses'], options_work.merge({value_attrib: :state})), :address),
-              zip:                       array_search(data_contact['addresses'], options_work.merge({value_attrib: :zip})),
-              countryID: map_value(:countryID, array_search(data_contact['addresses'], options_work.merge({value_attrib: :country})), :address)
-          },
-          employmentPreference: employ_pref,
-          dateAvailable: format_timestamp(array_search(data_custom,options_custom.merge({search_value: 'Rec: Available after:'}))),
-          travelLimit: format_travel_limit(array_search(data_custom,options_custom.merge({search_value: 'Rec: Max Travel %'}))),
-          referredBy: referred_by_name,
-          referredByPerson: nil,
-          customText1: map_value(:customText1, array_search(data_custom, options_custom.merge({search_value: 'Rec: Open to BlueTree Roles?'}))),
-          customText3: map_value(:customText3, array_search(data_custom,options_custom.merge({search_value: 'Rec: Interested in Canopy?'}))),
-          customText4: map_value(:customText4, array_search(data_custom, options_custom.merge({search_value: 'Rec: BlueTree Quality (Red/Yellow/Green)'}))),
-          customText15: current_blueleaf,
-          customText16: current_employment_model,
-          customText17: employment_pref,
-          customTextBlock2: format_textbox(source_entity.background),
-          customTextBlock3: format_textbox_array(comments),
-          customTextBlock4: format_textbox(current_employment_txt),
-          customTextBlock5: format_textbox_array(vetted_notes)
-      })
-
-      if owner.empty?
-        log_error("Missing advocate")
-      else
-        target_update.merge!({owner: owner})
-      end
-      target_update.merge!({referredByPerson: referred_by_assoc}) unless referred_by_assoc.empty?
-      mapped_apps = MappingService.map_highrise_apps(data_custom)
-      target_update.merge!({customText7: map_value_array(:customText7,mapped_apps[:p])}) unless mapped_apps[:p].nil? || mapped_apps[:p].count==0
-      target_update.merge!({customText6: map_value_array(:customText6,mapped_apps[:t])}) unless mapped_apps[:t].nil? || mapped_apps[:t].count==0
-      target_update.merge!({customText18: map_value_array(:customText18,mapped_apps[:q])}) unless mapped_apps[:q].nil? || mapped_apps[:q].count==0
-      # target_update_assoc.merge!({primarySkills: map_value_array(:primarySkills,mapped_apps[:q])}) unless mapped_apps[:q].nil? || mapped_apps[:q].count==0
-      target_update.merge!({customText12: map_value_array(:customText12,mapped_apps[:c])}) unless mapped_apps[:c].nil? || mapped_apps[:c].count==0
-      mapped_apps[:unknown].each { |app| log_error("Unknown ZCONAPP value: '#{app}'") } unless mapped_apps[:unknown].nil?
-
-      mapped_roles = MappingService.map_highrise_roles(data_custom)
-      target_update.merge!({customText8:  map_value_array(:customText8, mapped_roles[:p])}) unless mapped_roles[:p].nil? || mapped_roles[:p].count==0
-      target_update.merge!({customText13: map_value_array(:customText13,mapped_roles[:s])}) unless mapped_roles[:s].nil? || mapped_roles[:s].count==0
-      q_roles = mapped_roles[:q].nil? ? [] : mapped_roles[:q]
-      e_roles = mapped_roles[:e].nil? ? [] : mapped_roles[:e]
-      target_update.merge!({customText19: map_value_array(:customText19,q_roles + e_roles)}) unless (q_roles + e_roles).count==0
-      # target_update_assoc.merge!({specialties: map_value_array(:specialties,q_roles + e_roles)}) unless (q_roles + e_roles).count==0
-      mapped_roles[:unknown].each { |role| log_error("Unknown ZCONROLE value: '#{role}'") } unless mapped_roles[:unknown].nil?
+    emails = array_search_multi(data_contact['email_addresses'], options_work.merge({value_attrib: :address, description: 'work email'}))
+    emails = emails + array_search_multi(data_contact['email_addresses'], options_home.merge({value_attrib: :address, description: 'home email'}))
+    emails = emails + array_search_multi(data_contact['email_addresses'], options_home.merge({value_attrib: :address, search_value: 'Other', description: 'other email'}))
+    if emails.count > 3
+      log_error("More than 3 email addresses")
     end
 
+    referred_by_name = array_search(data_custom, options_custom.merge({search_value: 'Rec: Referred By'}))
+    referred_by_assoc = {}
+    unless referred_by_name.blank?
+      if referred_by_assoc[:id].blank?
+        referred_by_assoc = map_assoc(:corporate_user, 'name', referred_by_name)
+        referred_by_assoc[:_subType] = 'CorporateUser' unless referred_by_assoc[:id].blank?
+      end
 
-    # Need to map certs/roles => add_candidate_association
+      if referred_by_assoc[:id].blank?
+        referred_by_assoc = map_assoc(:candidate, 'name', referred_by_name)
+        referred_by_assoc[:_subType] = 'Candidate' unless referred_by_assoc[:id].blank?
+      end
+
+      if referred_by_assoc[:id].blank?
+        referred_by_assoc = map_assoc(:client_contact, 'name', referred_by_name)
+        referred_by_assoc[:_subType] = 'ClientContact' unless referred_by_assoc[:id].blank?
+      end
+    end
+    referred_by_name = nil unless referred_by_assoc[:id].blank?
+
+    current_blueleaf = map_value(:customText15, array_search(data_custom,options_custom.merge({search_value: 'HR: Current BlueLeaf?'})))
+    blueleaf_employment = array_search(data_custom,options_custom.merge({search_value: 'HR: Employment Model (W2/1099 (#%/#%))'}))
+    current_employment_mapped = map_value(:customText16, blueleaf_employment)
+
+    if current_blueleaf.blank?
+      current_employment_model = nil
+      current_employment_txt = nil
+      employment_pref = blueleaf_employment
+    else
+      current_employment_model = current_employment_mapped
+      current_employment_txt = current_employment_mapped.blank? ? blueleaf_employment : nil
+      employment_pref = nil
+    end
+
+    vetted_notes = []
+    vetted_notes << array_search(data_custom,options_custom.merge({search_value: 'Rec: Vetted by #1'}))
+    vetted_notes << array_search(data_custom,options_custom.merge({search_value: 'Rec: Vetted by #2'}))
+    vetted_notes << array_search(data_custom,options_custom.merge({search_value: 'Rec: Vetted by #3'}))
+    comments = []
+    rec_note_text = array_search(data_custom,options_custom.merge({search_value: 'Rec: Recruitment/Placement Notes'}))
+    quality_text = array_search(data_custom,options_custom.merge({search_value: 'Rec: BlueTree Quality R/Y/G Comments'}))
+    comments << "HR Rec/Placement Note: " + rec_note_text unless rec_note_text.blank?
+    comments << '' unless rec_note_text.blank? || quality_text.blank?
+    comments << "HR Quality Comment: " + quality_text unless quality_text.blank?
+    owner = map_assoc(:corporate_user, :name, array_search(data_custom, options_custom.merge({search_value: 'Rec: Primary Contact / Advocate / Manager'})))
+
+    other_phone = array_search(data_contact['phone_numbers'], options_home.merge({value_attrib: :number}))
+    other_phone = array_search(data_contact['phone_numbers'], options_home.merge({value_attrib: :number, search_value: 'Other'})) if other_phone.blank?
+
+    employ_pref = []
+    employ_pref << map_value(:employmentPreference, array_search(data_custom,options_custom.merge({search_value: 'Rec: FTE preferences (Local only; Open to relocation; Not interested)'})))
+    employ_pref << map_value(:employmentPreference, array_search(data_custom,options_custom.merge({search_value: 'Rec: Interested in salary?'})))
+
+    # dateAdded: format_timestamp(source_entity.created_at),
+    target_update.merge!({
+        firstName: source_entity.first_name,
+        lastName: source_entity.last_name,
+        name: source_entity.first_name.to_s + ' ' + source_entity.last_name.to_s,
+        customInt1: @current[:source_id],
+        companyName: source_entity.company_name,
+        companyURL: source_entity.linkedin_url,
+        occupation: format_str(source_entity.title,50),
+        status: 'HR Migration',
+        email: emails[0],
+        email2: emails.count > 1 ? emails[1] : '',
+        email3: emails.count > 2 ? emails[2] : '',
+        mobile: format_phone(array_search(data_contact['phone_numbers'], options_work.merge({value_attrib: :number, search_value: 'Mobile'}))),
+        workPhone: format_phone(array_search(data_contact['phone_numbers'], options_work.merge({value_attrib: :number}))),
+        phone2: format_phone(other_phone),
+        address: {
+            address1:  format_address( array_search(data_contact['addresses'], options_home.merge({value_attrib: :street}))),
+            city:                      array_search(data_contact['addresses'], options_home.merge({value_attrib: :city})),
+            state:     map_value(:state, array_search(data_contact['addresses'], options_home.merge({value_attrib: :state})), :address),
+            zip:                       array_search(data_contact['addresses'], options_home.merge({value_attrib: :zip})),
+            countryID: map_value(:countryID, array_search(data_contact['addresses'], options_home.merge({value_attrib: :country})), :address)
+        },
+        secondaryAddress: {
+            address1:  format_address( array_search(data_contact['addresses'], options_work.merge({value_attrib: :street}))),
+            city:                      array_search(data_contact['addresses'], options_work.merge({value_attrib: :city})),
+            state:     map_value(:state, array_search(data_contact['addresses'], options_work.merge({value_attrib: :state})), :address),
+            zip:                       array_search(data_contact['addresses'], options_work.merge({value_attrib: :zip})),
+            countryID: map_value(:countryID, array_search(data_contact['addresses'], options_work.merge({value_attrib: :country})), :address)
+        },
+        employmentPreference: employ_pref,
+        dateAvailable: format_timestamp(array_search(data_custom,options_custom.merge({search_value: 'Rec: Available after:'}))),
+        travelLimit: format_travel_limit(array_search(data_custom,options_custom.merge({search_value: 'Rec: Max Travel %'}))),
+        referredBy: referred_by_name,
+        referredByPerson: nil,
+        customText1: map_value(:customText1, array_search(data_custom, options_custom.merge({search_value: 'Rec: Open to BlueTree Roles?'}))),
+        customText3: map_value(:customText3, array_search(data_custom,options_custom.merge({search_value: 'Rec: Interested in Canopy?'}))),
+        customText4: map_value(:customText4, array_search(data_custom, options_custom.merge({search_value: 'Rec: BlueTree Quality (Red/Yellow/Green)'}))),
+        customText15: current_blueleaf,
+        customText16: current_employment_model,
+        customText17: employment_pref,
+        customTextBlock2: format_textbox(source_entity.background),
+        customTextBlock3: format_textbox_array(comments),
+        customTextBlock4: format_textbox(current_employment_txt),
+        customTextBlock5: format_textbox_array(vetted_notes)
+    })
+
+    if owner.empty?
+      log_error("Missing advocate")
+    else
+      target_update.merge!({owner: owner})
+    end
+    target_update.merge!({referredByPerson: referred_by_assoc}) unless referred_by_assoc.empty?
+    mapped_apps = MappingService.map_highrise_apps(data_custom)
+    target_update.merge!({customText7: map_value_array(:customText7,mapped_apps[:p])}) unless mapped_apps[:p].nil? || mapped_apps[:p].count==0
+    target_update.merge!({customText6: map_value_array(:customText6,mapped_apps[:t])}) unless mapped_apps[:t].nil? || mapped_apps[:t].count==0
+    target_update.merge!({customText18: map_value_array(:customText18,mapped_apps[:q])}) unless mapped_apps[:q].nil? || mapped_apps[:q].count==0
+    # target_update_assoc.merge!({primarySkills: map_value_array(:primarySkills,mapped_apps[:q])}) unless mapped_apps[:q].nil? || mapped_apps[:q].count==0
+    target_update.merge!({customText12: map_value_array(:customText12,mapped_apps[:c])}) unless mapped_apps[:c].nil? || mapped_apps[:c].count==0
+    mapped_apps[:unknown].each { |app| log_error("Unknown ZCONAPP value: '#{app}'") } unless mapped_apps[:unknown].nil?
+
+    mapped_roles = MappingService.map_highrise_roles(data_custom)
+    target_update.merge!({customText8:  map_value_array(:customText8, mapped_roles[:p])}) unless mapped_roles[:p].nil? || mapped_roles[:p].count==0
+    target_update.merge!({customText13: map_value_array(:customText13,mapped_roles[:s])}) unless mapped_roles[:s].nil? || mapped_roles[:s].count==0
+    q_roles = mapped_roles[:q].nil? ? [] : mapped_roles[:q]
+    e_roles = mapped_roles[:e].nil? ? [] : mapped_roles[:e]
+    target_update.merge!({customText19: map_value_array(:customText19,q_roles + e_roles)}) unless (q_roles + e_roles).count==0
+    # target_update_assoc.merge!({specialties: map_value_array(:specialties,q_roles + e_roles)}) unless (q_roles + e_roles).count==0
+    mapped_roles[:unknown].each { |role| log_error("Unknown ZCONROLE value: '#{role}'") } unless mapped_roles[:unknown].nil?
+
     update_target(target_update)
     update_target_assoc(target_update_assoc) unless target_update_assoc.empty?
   end
@@ -442,37 +441,34 @@ class MigrationService
     data_contact = source_entity.respond_to?(:contact_data) ? source_entity.contact_data.attributes : []
     data_custom = source_entity.respond_to?(:subject_datas) ? source_entity.subject_datas.map {|n| n.attributes} : []
 
-    if @run.test_only? || @run.create_shell?
-      target_update.merge!({
-        name: source_entity.name,
-        customInt1: @current[:source_id],
-        status: map_value(:status, array_search(data_custom, options_custom.merge({search_value: 'AM: Status'}))),
-        phone:         format_phone(   array_search(data_contact['phone_numbers'], options_work.merge({value_attrib: :number}))),
-        address: {
-            address1:  format_address( array_search(data_contact['addresses'], options_work.merge({value_attrib: :street}))),
-            city:                      array_search(data_contact['addresses'], options_work.merge({value_attrib: :city})),
-            state:     map_value(:state, array_search(data_contact['addresses'], options_work.merge({value_attrib: :state})), :address),
-            zip:                       array_search(data_contact['addresses'], options_work.merge({value_attrib: :zip})),
-            countryID: map_value(:countryID, array_search(data_contact['addresses'], options_work.merge({value_attrib: :country})), :address)
+    target_update.merge!({
+      name: source_entity.name,
+      customInt1: @current[:source_id],
+      status: map_value(:status, array_search(data_custom, options_custom.merge({search_value: 'AM: Status'}))),
+      phone:         format_phone(   array_search(data_contact['phone_numbers'], options_work.merge({value_attrib: :number}))),
+      address: {
+          address1:  format_address( array_search(data_contact['addresses'], options_work.merge({value_attrib: :street}))),
+          city:                      array_search(data_contact['addresses'], options_work.merge({value_attrib: :city})),
+          state:     map_value(:state, array_search(data_contact['addresses'], options_work.merge({value_attrib: :state})), :address),
+          zip:                       array_search(data_contact['addresses'], options_work.merge({value_attrib: :zip})),
+          countryID: map_value(:countryID, array_search(data_contact['addresses'], options_work.merge({value_attrib: :country})), :address)
 
-        },
-        companyURL:    format_str(array_search(data_contact['web_addresses'], options_work.merge({value_attrib: :url})),100),
-        customText2:   array_search(data_contact['email_addresses'], options_work.merge({value_attrib: :address, description: 'work email'})),
-        customText3:   array_search(data_custom, options_custom.merge({search_value: 'AM: Account Manager'})),
-        customText4:   map_value(:customText4, array_search(data_custom, options_custom.merge({search_value: 'AM: Category'}))),
-        customText5:   array_search(data_custom, options_custom.merge({search_value: 'AM: Epic IC:'})),
-        customText6:   array_search(data_custom, options_custom.merge({search_value: 'AM: Epic IM:'})),
-        customText7:   array_search(data_custom, options_custom.merge({search_value: 'AM: Referral Source Name'})),
-        customText8:   map_value(:customText8, array_search(data_custom, options_custom.merge({search_value: 'AM: Referral Source Type'}))),
-        customText9:   array_search(data_custom, options_custom.merge({search_value: 'AM: RFA Terms'})),
-        customText10:  map_value(:customText10, array_search(data_custom, options_custom.merge({search_value: "AM: SOW (BlueTree's or Client's)"}))),
-        customText11:  map_value(:customText11, array_search(data_custom, options_custom.merge({search_value: "HR: HCO requires purchase order ID?"}))),
-        customText15:  format_str(array_search(data_contact['web_addresses'], options_work.merge({value_attrib: :url, search_value: 'Other'})),100),
-        companyDescription: format_textbox(source_entity.background)
+      },
+      companyURL:    format_str(array_search(data_contact['web_addresses'], options_work.merge({value_attrib: :url})),100),
+      customText2:   array_search(data_contact['email_addresses'], options_work.merge({value_attrib: :address, description: 'work email'})),
+      customText3:   array_search(data_custom, options_custom.merge({search_value: 'AM: Account Manager'})),
+      customText4:   map_value(:customText4, array_search(data_custom, options_custom.merge({search_value: 'AM: Category'}))),
+      customText5:   array_search(data_custom, options_custom.merge({search_value: 'AM: Epic IC:'})),
+      customText6:   array_search(data_custom, options_custom.merge({search_value: 'AM: Epic IM:'})),
+      customText7:   array_search(data_custom, options_custom.merge({search_value: 'AM: Referral Source Name'})),
+      customText8:   map_value(:customText8, array_search(data_custom, options_custom.merge({search_value: 'AM: Referral Source Type'}))),
+      customText9:   array_search(data_custom, options_custom.merge({search_value: 'AM: RFA Terms'})),
+      customText10:  map_value(:customText10, array_search(data_custom, options_custom.merge({search_value: "AM: SOW (BlueTree's or Client's)"}))),
+      customText11:  map_value(:customText11, array_search(data_custom, options_custom.merge({search_value: "HR: HCO requires purchase order ID?"}))),
+      customText15:  format_str(array_search(data_contact['web_addresses'], options_work.merge({value_attrib: :url, search_value: 'Other'})),100),
+      companyDescription: format_textbox(source_entity.background)
 
-      })
-
-    end
+    })
 
     update_target(target_update)
   end
@@ -486,68 +482,66 @@ class MigrationService
 
     target_update = {}
 
-    if @run.test_only? || @run.create_shell?
-      if source_entity.party_id.blank?
-        log_error("Blank Company - applying default")
-        client_corp_id = MappingService::DEFAULT_COMPANY
-      else
-        client_corp_id = source_entity.party_id
-      end
-      client_corp_obj = map_assoc(:client_corporation, 'customInt1', client_corp_id)
-      client_corp_name_obj = map_assoc(:client_corporation,'customInt1',client_corp_id, :name)  # should be cached now
-
-      if client_corp_obj[:id].blank?
-        log_error("Missing Company=#{source_entity.party_id} - not migrating deal")
-        return
-      end
-
-      client_contact_obj = get_corporation_contact(client_corp_name_obj[:name])
-
-      owner_name = get_source_name(:user, source_entity.responsible_party_id)
-      owner_obj = map_assoc(:corporate_user, 'name', owner_name)
-      if owner_obj[:id].blank?
-        log_error("Missing Owner=#{owner_name} (#{source_entity.responsible_party_id}) - applying default")
-        owner_obj = nil
-      end
-
-      employment_type = source_entity.respond_to?(:category) ? map_value(:employmentType,source_entity.category.name) : 'Other'
-      priority = source_entity.name.match(/\[P:(\d+)\]/) ? source_entity.name.match(/\[P:(\d+)\]/)[1] : 3
-
-      if source_entity.status == 'won'
-        status = 'Won'
-      elsif source_entity.respond_to?(:category)
-        status = map_value(:status,source_entity.category.name)
-      else
-        status = 'None'
-      end
-
-      target_update.merge!({
-             title: format_str(source_entity.name,100),
-             customInt1: @current[:source_id],
-             clientCorporation: client_corp_obj,
-             clientContact: client_contact_obj,
-             description: format_textbox_html(source_entity.background),
-             employmentType: employment_type,
-             clientBillRate: source_entity.price_type == 'hour' ? source_entity.price : nil,
-             isOpen: (source_entity.status == 'pending'),
-             status: status,
-             startDate: format_timestamp(source_entity.created_at),
-             salaryUnit: map_value(:salaryUnit, source_entity.price_type),
-             type: priority
-         })
-      target_update.merge!({owner: owner_obj }) unless owner_obj.nil?
-
-      case employment_type
-        when 'Contract', 'Contract (C2C)'
-          target_update.merge!({clientBillRate: source_entity.price})
-        when 'Permanent - FTE'
-          target_update.merge!({salary: source_entity.price})
-        else
-          target_update.merge!({payrate: source_entity.price})
-      end
-
-      update_target(target_update)
+    if source_entity.party_id.blank?
+      log_error("Blank Company - applying default")
+      client_corp_id = MappingService::DEFAULT_COMPANY
+    else
+      client_corp_id = source_entity.party_id
     end
+    client_corp_obj = map_assoc(:client_corporation, 'customInt1', client_corp_id)
+    client_corp_name_obj = map_assoc(:client_corporation,'customInt1',client_corp_id, :name)  # should be cached now
+
+    if client_corp_obj[:id].blank?
+      log_error("Missing Company=#{source_entity.party_id} - not migrating deal")
+      return
+    end
+
+    client_contact_obj = get_corporation_contact(client_corp_name_obj[:name])
+
+    owner_name = get_source_name(:user, source_entity.responsible_party_id)
+    owner_obj = map_assoc(:corporate_user, 'name', owner_name)
+    if owner_obj[:id].blank?
+      log_error("Missing Owner=#{owner_name} (#{source_entity.responsible_party_id}) - applying default")
+      owner_obj = nil
+    end
+
+    employment_type = source_entity.respond_to?(:category) ? map_value(:employmentType,source_entity.category.name) : 'Other'
+    priority = source_entity.name.match(/\[P:(\d+)\]/) ? source_entity.name.match(/\[P:(\d+)\]/)[1] : 3
+
+    if source_entity.status == 'won'
+      status = 'Won'
+    elsif source_entity.respond_to?(:category)
+      status = map_value(:status,source_entity.category.name)
+    else
+      status = 'None'
+    end
+
+    target_update.merge!({
+           title: format_str(source_entity.name,100),
+           customInt1: @current[:source_id],
+           clientCorporation: client_corp_obj,
+           clientContact: client_contact_obj,
+           description: format_textbox_html(source_entity.background),
+           employmentType: employment_type,
+           clientBillRate: source_entity.price_type == 'hour' ? source_entity.price : nil,
+           isOpen: (source_entity.status == 'pending'),
+           status: status,
+           startDate: format_timestamp(source_entity.created_at),
+           salaryUnit: map_value(:salaryUnit, source_entity.price_type),
+           type: priority
+       })
+    target_update.merge!({owner: owner_obj }) unless owner_obj.nil?
+
+    case employment_type
+      when 'Contract', 'Contract (C2C)'
+        target_update.merge!({clientBillRate: source_entity.price})
+      when 'Permanent - FTE'
+        target_update.merge!({salary: source_entity.price})
+      else
+        target_update.merge!({payrate: source_entity.price})
+    end
+
+    update_target(target_update)
   end
 
   def migrate_history
@@ -590,9 +584,9 @@ class MigrationService
     @comments_count = {success: 0, failed:0, current_note: 0}
     @new_notes = []
 
-    from_timestamp = @run.from_date.nil? ? nil : @run.from_date.to_time(:utc)
-    through_timestamp = @run.through_date.nil? ? nil : @run.through_date.to_time(:utc)
-    if ( @run.load_history? || @run.update_history? ) && from_timestamp
+    from_timestamp = @run.from_date.nil? ? nil : @run.from_date.to_time(:local).utc
+    through_timestamp = @run.through_date.nil? ? nil : @run.through_date.to_time(:local).utc
+    if from_timestamp
       source_entity.notes_each_since(from_timestamp) do |note|
         migrate_note(note) if through_timestamp.nil? || through_timestamp > note.created_at
       end
@@ -601,7 +595,7 @@ class MigrationService
           migrate_email(email)  if through_timestamp.nil? || through_timestamp > email.created_at
         end
       end
-    elsif (@run.load_history? || @run.update_history? )
+    else
       source_entity.notes_each do |note|
         migrate_note(note) if through_timestamp.nil? || through_timestamp > note.created_at
       end
@@ -610,8 +604,6 @@ class MigrationService
           migrate_email(email)  if through_timestamp.nil? || through_timestamp > email.created_at
         end
       end
-    else
-      log_error("Unknown run phase in #migrate_history: #{@run.phase}")
     end
 
     msg = "Success: #{@notes_count[:success]} notes/emails, #{@comments_count[:success]} comments / Failed: #{@notes_count[:failed]} notes/emails"
