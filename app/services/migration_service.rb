@@ -58,6 +58,7 @@ class MigrationService
   end
 
   def run
+    return unless @run.created? || @run.queued?  # abort if the status has already been changed
     @run.preparing!
 
     error_check unless @ready
