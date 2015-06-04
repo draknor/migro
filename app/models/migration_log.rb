@@ -34,6 +34,9 @@ class MigrationLog < ActiveRecord::Base
   def truncate_message
     # puts "[debug] truncate_message"
     self.message = self.message.truncate(254) unless self.message.nil?
+    self.target_before = self.target_before.truncate(65534) unless self.target_before.nil?
+    self.target_after = self.target_after.truncate(65534) unless self.target_after.nil?
+    self.source_before = self.source_before.truncate(65534) unless self.source_before.nil?
   end
 
 end

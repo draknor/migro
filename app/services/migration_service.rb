@@ -898,8 +898,8 @@ class MigrationService
       return nil
     end
 
-    if target_entities.count == 0 && !(@run.create_record? || @run.test_only? || @run.catch_all?)
-      log_error("No target record found with source ID #{@current[:source_id]} and phase is NOT 'create_record' or 'catch_all'")
+    if target_entities.count == 0 && !(@run.create_record? || @run.test_only? || @run.catchup_all?)
+      log_error("No target record found with source ID #{@current[:source_id]} and phase is NOT 'create_record' or 'catchup_all'")
       return nil
     end
 
@@ -1090,6 +1090,8 @@ class MigrationService
 
   def cache_values(field, parent_field)
     # puts "[debug] cache_values: field = #{field}"
+
+    @mapping_values[field] = {}  # initialize
     meta_fields = @target.get_meta(@target_entity_type)
     log_error("No metadata for field '#{field}'") if meta_fields.empty?
 
