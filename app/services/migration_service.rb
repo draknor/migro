@@ -897,8 +897,8 @@ class MigrationService
       return nil
     end
 
-    if target_entities.count == 0 && !(@run.create_record? || @run.test_only?)
-      log_error("No target record found with source ID #{@current[:source_id]} and phase is NOT 'create_record'")
+    if target_entities.count == 0 && !(@run.create_record? || @run.test_only? || @run.catch_all?)
+      log_error("No target record found with source ID #{@current[:source_id]} and phase is NOT 'create_record' or 'catch_all'")
       return nil
     end
 
