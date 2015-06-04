@@ -111,6 +111,10 @@ class BullhornSystem < BaseSystem
     @client.send "update_#{entity}", id, attributes
   end
 
+  def self.delete(entity,id)
+    @client.send "delete_#{entity}", id
+  end
+
   def self.add_association(entity,id,assoc_entity,values = [])
     curr_resp = @client.send "get_#{entity}_associations", id, assoc_entity, {fields: id}
     curr_vals = curr_resp[:data].map {|n| n[:id]}

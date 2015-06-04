@@ -10,8 +10,8 @@ GIT
 
 GIT
   remote: https://github.com/draknor/highrise.git
-  revision: 2b0c7dd4caacc477594391f11d20b99170e05b08
-  ref: 2b0c7dd
+  revision: 878284419945b408970749b0d1d4365fcdd03407
+  ref: 8782844
   branch: get_all_tasks
   specs:
     highrise (3.2.1)

@@ -38,10 +38,14 @@ class BaseSystem
   end
 
   def self.update(entity,id,attributes)
+  end
 
+  def self.delete(entity,id)
   end
 
   def self.add_association(entity,id,assoc_entity,values)
+  end
 
+  def self.get_association(entity,id,assoc_entity,options)
   end
 end

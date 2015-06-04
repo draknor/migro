@@ -45,7 +45,7 @@ gem 'rails-html-sanitizer', '~> 1.0'
 # Use Capistrano for deployment
 # gem 'capistrano-rails', group: :development
 
-gem 'highrise', git: 'https://github.com/draknor/highrise.git', :branch => 'get_all_tasks', :ref => '2b0c7dd'
+gem 'highrise', git: 'https://github.com/draknor/highrise.git', :branch => 'get_all_tasks', :ref => '8782844'
 gem 'bullhorn-rest', git: 'https://github.com/draknor/bullhorn-rest.git', :branch => 'fix_query_tasks'
 gem 'hashie'
 gem 'awesome_print'

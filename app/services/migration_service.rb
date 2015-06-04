@@ -627,13 +627,15 @@ class MigrationService
     target_note = find_target_note(:note,note.id)
     return if target_note.nil?  # error scenario - abort
     return if @run.load_history? && !target_note.empty?  # don't update existing notes when just loading history
+    comments = note.comments
+    return unless note_updated?(note.attributes, target_note) || note_comments_updated?(comments,target_note)
 
     author_name = get_source_name(:user, note.author_id)
 
     note_txt = []
     note_txt << "[Highrise Note: Created by #{author_name} on #{format_note_dt(note.created_at)}]"
     note_txt << format_textbox(note.body)
-    note_txt << get_comments(note)
+    note_txt << get_comments(comments)
     note_txt << '' << note_tag(:note,note.id)
 
     target_update = {}
@@ -655,6 +657,8 @@ class MigrationService
     target_note = find_target_note(:email,email.id)
     return if target_note.nil?  # error scenario - abort
     return if @run.load_history? && !target_note.empty?  # don't update existing notes when just loading history
+    comments = email.comments
+    return unless note_updated?(email.attributes, target_note) || note_comments_updated?(comments,target_note)
 
     author_name = get_source_name(:user, email.author_id)
 
@@ -663,7 +667,7 @@ class MigrationService
     note_txt << "Subject: #{email.title}"
     note_txt << format_textbox(email.body)
     note_txt << get_attachments(email) if email.respond_to?(:attachments) && email.attachments.count > 0
-    note_txt << get_comments(email)
+    note_txt << get_comments(comments)
     note_txt << '' << note_tag(:email,email.id)
 
     target_update = {}
@@ -678,6 +682,7 @@ class MigrationService
   end
 
   def migrate_note_or_email(note_or_email, target_note, target_update, author_name)
+    puts "[debug] migrate_note_or_email: #{note_or_email.id}"
     author_obj = map_assoc(:corporate_user, 'name', author_name)
     if author_obj[:id].blank?
       log_error("Missing Author=#{author_obj} (#{note_or_email.author_id}) - applying default")
@@ -718,6 +723,21 @@ class MigrationService
     notes[0]
   end
 
+  def note_updated?(source_note,target_note)
+    # return source_note[:updated_at].to_i*1000 > target_note[:dateLastModified].to_i
+    # highrise doesn't actually update the timestamp when a note is edited :-(
+    true
+  end
+
+  def note_comments_updated?(comments,target_note)
+    updated = false
+    comments.each do |comment|
+      updated = comment.updated_at.to_i*1000 > target_note[:dateLastModified].to_i
+      break if updated
+    end
+    updated
+  end
+
   def update_target_note(current_note,new_note,note_refs)
     puts "[debug] #update_target_note new_note=#{new_note.inspect}"
     note_id = nil
@@ -741,22 +761,9 @@ class MigrationService
       elsif result[:changeType]
         @notes_count[:success] = @notes_count[:success] + 1
         @comments_count[:success] = @comments_count[:success] + @comments_count[:current_note]
-        # create NoteEntity TODO - don't duplicate existing note entries (!)
         unless note_id.nil?
           @new_notes << note_id
-          note_refs.each do |ref_type, ref_obj|
-            ref_update = {
-              note: { id: note_id },
-              targetEntityID: ref_obj[:id],
-              targetEntityName: ref_type == :jobOrder ? 'JobOrder' : 'User'
-            }
-            ref_result = @target.create(:note_entity,ref_update)
-            if ref_result.class == ServiceError
-              log_error("Service Error for NoteEntity: #{ref_result.message}")
-            elsif result[:errorMessage]
-              result[:errors].each {|n| log_error("API Error for NoteEntity: #{n.inspect}") } unless result[:errors].nil?
-            end
-          end
+          update_note_entities(note_id, note_refs, result[:changeType].downcase == 'insert')
         end
      else
         log_error("Update_Target_Note: Result Unknown! #{result.inspect}")
@@ -769,10 +776,44 @@ class MigrationService
     "[highrise.#{note_type.to_s.downcase}.id=#{note_id}]"
   end
 
-  def get_comments(parent)
+  def update_note_entities(note_id,references,note_is_new)
+    note_entities = {}
+    unless note_is_new
+      @target.get_association(:note,note_id,:entities,{fields: 'id,targetEntityID,targetEntityName'}).each do |entity|
+        key = entity[:targetEntityName].to_s + ' ' + entity[:targetEntityID].to_s
+        note_entities[key] = entity[:id]
+      end
+    end
+
+    references.each do |ref_type, ref_obj|
+      ref_update = {
+          note: { id: note_id },
+          targetEntityID: ref_obj[:id],
+          targetEntityName: ref_type == :jobOrder ? 'JobOrder' : 'User'
+      }
+      if note_entities.delete(ref_update[:targetEntityID].to_s + ' ' + ref_update[:targetEntityName].to_s).nil?
+        ref_result = @target.create(:note_entity,ref_update)
+        if ref_result.class == ServiceError
+          log_error("Service Error for NoteEntity: #{ref_result.message}")
+        elsif ref_result[:errorMessage]
+          ref_result[:errors].each {|n| log_error("API Error for NoteEntity: #{n.inspect}") } unless ref_result[:errors].nil?
+        end
+      else
+        # entity already exists - nothing to do!
+      end
+    end
+
+    # added all the entities we need - now delete any remaining entities
+    note_entities.each do |key,id|
+      puts "[debug] update_note_entities > delete id=#{id} key=#{key}"
+      @target.delete(:note_entity,id)
+    end
+  end
+
+  def get_comments(comments)
     @comments_count[:current_note] = 0
     comment_hx = []
-    parent.comments.each do |comment|  # assuming these are already in chrono order
+    comments.each do |comment|  # assuming these are already in chrono order
       if comment_hx.empty?
         comment_hx << '' << "[Comments]"
       end

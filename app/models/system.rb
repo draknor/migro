@@ -84,12 +84,29 @@ class System < ActiveRecord::Base
     end
   end
 
+  def delete(entity,id)
+    begin
+      @system_type.delete(entity,id)
+    rescue
+      ServiceError.new('API delete failed')
+    end
+  end
+
   def add_association(entity,id,assoc_entity,values)
     begin
       @system_type.add_association(entity,id,assoc_entity,values)
     rescue
       ServiceError.new('API add_association failed')
     end
+  end
+
+  def get_association(entity,id,assoc_entity,options = {})
+    begin
+      @system_type.get_association(entity,id,assoc_entity,options)
+    rescue
+      ServiceError.new('API get_association failed')
+    end
+
   end
 
 
