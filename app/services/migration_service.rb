@@ -550,7 +550,7 @@ class MigrationService
     source_entity = @current[:source_entity]
 
     @target_entity_type = get_target_type if @source_entity_type.to_sym == :person
-    get_target_entity
+    get_target_entity unless @target_entity_type.nil?
     if @current[:target_id].blank?
       log_error("Missing target record #{@target_entity_type} for #{@source_entity_type}=#{@current[:source_id]}")
       return
