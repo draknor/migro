@@ -41,7 +41,7 @@ class BullhornSystem < BaseSystem
       return [get(entity,query,options)]
     end
     case entity.to_s.underscore.pluralize
-      when 'candidates', 'notes'
+      when 'candidates','notes'
         resp = @client.send "search_#{entity.to_s.underscore.pluralize}", options.merge({ query: query })
       else
         resp = @client.send "query_#{entity.to_s.underscore.pluralize}", options.merge({ where: query })

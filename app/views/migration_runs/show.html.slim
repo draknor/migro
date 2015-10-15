@@ -87,7 +87,7 @@
           tr
             td = format_time(log.created_at)
             td
-              a data-dropdown="log#{log.id}src" aria-controls="log#{log.id}src" aria-expanded="false" #{log.source_id}
+              a data-dropdown="log#{log.id}src" aria-controls="log#{log.id}src" aria-expanded="false" #{log.source_id.blank? ? '(none)' : log.source_id}
             td
               a data-dropdown="log#{log.id}bef" aria-controls="log#{log.id}bef" aria-expanded="false" #{log.target_id.blank? ? '(none)' : log.target_id}
             td
@@ -96,13 +96,13 @@
             td
               div id="log#{log.id}src" data-dropdown-content="" class="large f-dropdown content" aria-hidden="true" tabindex="-1"
                 pre
-                  = JSON.pretty_generate(JSON.parse log.source_before)
+                  = JSON.pretty_generate(JSON.parse log.source_before) unless log.source_before == '""'
               div id="log#{log.id}bef" data-dropdown-content="" class="large f-dropdown content" aria-hidden="true" tabindex="-1"
                 pre
-                  = JSON.pretty_generate(JSON.parse log.target_before)
+                  = JSON.pretty_generate(JSON.parse log.target_before) unless log.target_before == '""'
               div id="log#{log.id}aft" data-dropdown-content="" class="large f-dropdown content" aria-hidden="true" tabindex="-1"
                 pre
-                  = JSON.pretty_generate(JSON.parse log.target_after)
+                  = JSON.pretty_generate(JSON.parse log.target_after) unless log.target_after == '""'
 .row
   = link_to 'Abort', abort_migration_run_path(@migration_run), class: 'button tiny' if @migration_run.running?
   | &nbsp;

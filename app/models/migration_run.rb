@@ -9,7 +9,7 @@ class MigrationRun < ActiveRecord::Base
   belongs_to :destination_system, class_name: 'System'
   has_many :migration_logs
 
-  validates_presence_of :source_system
+  #validates_presence_of :source_system
   validates_presence_of :destination_system
   validates_presence_of :entity_type
   validates_presence_of :phase
@@ -19,7 +19,7 @@ class MigrationRun < ActiveRecord::Base
     if all_records
       self[:max_records] = -1 if self[:max_records].nil?
     else
-      self[:max_records] = record_list.split("\r\n").count
+      self[:max_records] = record_list.split("\r\n").count unless record_list.nil?
     end
   end
 
